@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-15 -*-
-# vim: tw=70
+#!/usr/bin/env python
+# :exec set tabstop=4 softtab expandtab encoding=utf8 :
 
 '''
 Provide the basic calculational engine for the calculator.
@@ -54,7 +54,6 @@ except: pass
 # Modules we are dependent on
 try:
     import mpmath as m
-    from mpmath.optimization import findroot
 except ImportError:
     print '''This package is dependent on the mpmath module for its arithmetic
 facilities.  You can download it from:
@@ -627,7 +626,7 @@ def Incdf(x):
     elif x < 0.95:  start = mpf("1.64")
     elif x < 0.99:  start = mpf("2.3")
     else:           start = mpf("3")
-    y = findroot(lambda z: ncdf(z) - x, 0)
+    y = m.findroot(lambda z: ncdf(z) - x, 0)
     return y
 
 def hr(x):
@@ -931,7 +930,7 @@ def Show():
         if sign ==  -1:
             s = "-" + s
         display.msg(" " + prefix + s)
-    from mpmath.libmpf import to_digits_exp
+    from mpmath.libmp.libmpf import to_digits_exp
     x = stack[0]
     if isinstance(x, m.mpf):
         showx(x)
@@ -2310,7 +2309,10 @@ def main():
                     if status == status_quit:
                         finished = True
     except KeyboardInterrupt, e:
-        print "Caught keyboard interrupt"
+        pass
+    except EOFError, e:
+        pass
+    print
     SaveConfiguration()
     if status == status_error:
         exit(1)
