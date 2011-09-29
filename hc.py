@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #----------------------------------
 # Python library stuff
 import sys, getopt
+import readline
 from string import strip
 from os import remove, system, urandom, environ
 import os.path
