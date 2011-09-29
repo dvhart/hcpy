@@ -513,6 +513,9 @@ def chs(x):
 def bit_negate(x):
     return ~Convert(x, INT)
 
+def negate(x):
+    return -x
+
 def numerator(x):
     return Convert(x, RAT).n
 
@@ -590,6 +593,16 @@ def Factorial(x):
         if limit == 0 or (limit > 0 and x < limit):
             return ExactIntegerFactorial(x)
     return m.factorial(x)
+
+def Sum(*args):
+    s = 0
+    try:
+        for x in args:
+            s = add(s, x)
+    except Exception, e:
+        display.msg("%sStack is not large enough, %s" % (fln(), e))
+        return None
+    return s
 
 def Ln2(x):
     return m.ln(x)/m.ln(2)
@@ -685,12 +698,16 @@ def Modulus(x):
     return None
 
 def Rationals(x):
+    '''Show rationals as rationals instead of decimals
+    '''
     if x != 0:
         cfg["no_rationals"] = True
     else:
         cfg["no_rationals"] = False
 
 def ToggleDowncasting(x):
+    '''Toggle downcasting: if X, downcast floats to ints if precision permits
+    '''
     if x != 0:
         cfg["downcasting"] = True
     else:
@@ -764,7 +781,7 @@ def mixed(x):
         cfg["mixed_fractions"] = False
         Rational.mixed = False
 
-def xch():
+def swap():
     try:
         stack.swap()
     except:
@@ -776,11 +793,29 @@ def roll():
     except:
         display.msg("%sStack is not large enough" % fln())
 
-def Del():
+def drop(x):
+    return None
+
+def dropn(*args):
+    return None
+
+def dup(x):
     try:
-        stack.pop()
+        stack.push(x)
+        return x
     except:
         display.msg("%sStack is empty" % fln())
+
+def dupn(*args):
+    n = len(args)
+    for a in range(1, n+1):
+        stack.push(args[-a])
+    for a in range(1, n+1):
+        stack.push(args[-a])
+    return None
+
+def depth():
+    stack.push(stack.size())
 
 def Cast(x, newtype, use_prec=False):
     '''If use_prec == True, use mp.dps.
@@ -1624,7 +1659,41 @@ def ExecutedCommandOK(cmd, args, commands_dict):
         except KeyboardInterrupt:
             display.msg("%sInterrupted" % fln())
             return False
-        except Exception, e: 
+        except Exception, e:
+            display.msg("%s" % fln() + str(e))
+            return False
+    elif num_stack_args == 'x':
+        # Binary function
+        size = stack.size()
+        n = 0
+        try:
+            n = stack[0]
+            n = int(n)
+            last = stack[n]
+        except:
+            display.msg("Not enonugh arguments")
+            return False
+        args = []
+        x1 = stack.pop()
+        try:
+            for i in range(n):
+                x = stack.pop()
+                if isinstance(x, Zn): x = int(x)
+                args.append(x)
+        except Exception, e:
+            display.msg("%s" % fln() + str(e))
+            return False
+        try:
+            stack.lastx = x1
+            result = func(*args)
+            if result != None:
+                if isint(result):
+                    result = Zn(result)
+                stack.push(result)
+        except KeyboardInterrupt:
+            display.msg("%sInterrupted" % fln())
+            return False
+        except Exception, e:
             display.msg("%s" % fln() + str(e))
             return False
     else:
@@ -2139,6 +2208,7 @@ def main():
         "comb"     : [combination, 2],  # Combinations of y taken x at a time
         "perm"     : [permutation, 2],  # Permutations of y taken x at a time
         "pow"      : [m.power, 2],  # Raise y to the power of x
+        "^"        : [m.power, 2],  # Raise y to the power of x
         "atan2"    : [m.atan2, 2, {"post" : Conv2Deg}], #
         "hypot"    : [m.hypot, 2],  # sqrt(x*x + y*y)
         "round"    : [Round, 2],  # Round y to nearest x
@@ -2163,6 +2233,7 @@ def main():
         "ip"       : [ip, 1],    # Integer part of x
         "fp"       : [Fp, 1],    # Fractional part of x
         "1/x"      : [reciprocal, 1], # Calculate the reciprocal of x
+        "inv"      : [reciprocal, 1], # reciprocal of x
         "chs"      : [chs, 1],   # Change the sign of x
         "~"        : [bit_negate, 1],   # Flip all the bits of x
         "numer"    : [numerator, 1],    # Numerator of rational
@@ -2173,9 +2244,11 @@ def main():
         "im"       : [ImagPart, 1],     # Imaginary part of x
         "conj"     : [conj, 1],  # Complex conjugate of x
         "sqrt"     : [sqrt, 1],  # Square root of x
-        "square"   : [square, 1],# Square x
+        "sqr"      : [square, 1],# Square x
+        "neg"      : [negate, 1], # negative of x
         "mid"      : [mid, 1],   # Take midpoint of interval number
         "fact"     : [Factorial, 1], # Factorial of x
+        "sum"      : [Sum, 'x'],  # sum of top x values (depth sum for all)
         "floor"    : [floor, 1], # Largest integer <= x
         "ceil"     : [ceil, 1],  # Smallest integer >= x
         "eps"      : [None, 0],
@@ -2212,21 +2285,27 @@ def main():
         "abs"      : [abs, 1],   # Absolute value of x
         "arg"      : [arg, 1, {"post" : Conv2Deg}],  # Argument of complex
 
-        # Other functions
-        "quit"     : [quit, 0],  # Exit the program
-        "enter"    : [Enter, 0], # Push a copy of x onto the stack
+        # Stack functions
+        "."        : [None, 0],  # Print stack
+        "clr"      : [ClearStack, 0],
+        "stack"    : [SetStackDisplay, 1],
         "lastx"    : [lastx, 0], # Recall last x used
         "mixed"    : [mixed, 1], # Toggle mixed fraction display
-        "xch"      : [xch, 0],   # Exchange x and y
+        "swap"     : [swap, 0],   # swap x and y
         "roll"     : [roll, 0],  # Roll stack
-        "del"      : [Del, 0],   # Pop x off the stack
-        "?"        : [None, 0],  # Help command
+        "drop"     : [drop, 1],   # Pop x off the stack
+        "dropn"    : [dropn, 'x'],   # Pop x items off the stack
+        "dup"      : [dup, 1],   # Push a copy of x onto the stack
+        "dupn"     : [dupn, 'x'],  # duplicate top x values on stack
+        "depth"    : [depth, 0],  # Push stack depth onto stack
+
+        # constants
         "pi"       : [Pi, 0],
-        "prst"     : [None, 0],  # Print stack
-        "."        : [None, 0],  # Print stack
-        "clst"     : [ClearStack, 0],
-        "stack"    : [SetStackDisplay, 1],
         "e"        : [E, 0],
+
+        # Other stuff
+        "?"        : [None, 0],  # Help command
+        "quit"     : [quit, 0],  # Exit the program
         "deg"      : [None, 0],  # Set degrees for angle mode
         "rad"      : [None, 0],  # Set radians for angle mode
         "ec"       : [EditConfiguration, 0],
