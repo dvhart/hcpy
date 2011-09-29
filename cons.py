@@ -461,18 +461,18 @@ def ConstructConstants():
     '''
     constants = ParseRawData()
     wanted = (
-       #("Avogadro constant", "cN"),
+       ("Avogadro constant", "cN"),
        #("Boltzmann constant", "ck"),
-       #("Newtonian constant of gravitation", "cG"),
+       ("Newtonian constant of gravitation", "cG"),
        #("Planck constant", "ch"),
        #("Stefan-Boltzmann constant", "csigma"),
        #("electron mass", "cme"),
-       #("atomic unit of charge", "ce"),
+       ("atomic unit of charge", "ce"),
        #("electron volt", "ceV"),
        #("molar gas constant", "cR"),
        #("neutron mass", "cmn"),
        #("proton mass", "cmp"),
-       #("speed of light in vacuum", "cc"),
+       ("speed of light in vacuum", "cc"),
        #("standard acceleration of gravity", "cg"),
        #("standard atmosphere", "catm"),
        #("unified atomic mass unit", "camu"),

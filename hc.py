@@ -740,7 +740,11 @@ def quit():
     pass
 
 def Pi():
-    stack.push(m.pi)
+    print m.mpf(m.mp.pi)
+    stack.push(m.mpf(m.mp.pi))
+
+def E():
+    stack.push(m.mp.e)
 
 def Enter():
     if stack.size():
@@ -1915,8 +1919,6 @@ def ProcessSpecialCommand(cmd, commands_dict):
         return status_ok_no_display
     elif cmd == "reset":
         Reset()
-    elif cmd == "e":
-        EditXRegister()
     elif len(cmd) >= 3 and cmd[:3] == "int":
         Int(cmd)
     elif len(cmd) >= 4 and cmd[:4] == "uint":
@@ -1963,8 +1965,6 @@ def ProcessSpecialCommand(cmd, commands_dict):
     elif cmd == "ivc":
         cfg["iv_mode"] = "c"
         Julian.interval_representation = "c"
-    elif cmd == "pi":
-        Pi()
     elif cmd == "on":
         display.on()
         return status_ok_no_display
@@ -2229,6 +2229,7 @@ def main():
         "."        : [None, 0],  # Print stack
         "clst"     : [ClearStack, 0],
         "stack"    : [SetStackDisplay, 1],
+        "e"        : [E, 0],
         "deg"      : [None, 0],  # Set degrees for angle mode
         "rad"      : [None, 0],  # Set radians for angle mode
         "ec"       : [EditConfiguration, 0],
@@ -2276,7 +2277,6 @@ def main():
         # The none display mode is primarily intended for debugging.  It
         # displays makes the mpmath numbers display in their native formats.
         "none"     : [None, 0],
-        "e"        : [None, 0],  # Edit the x register
         "reset"    : [None, 0], # Reset the calculator state
 
         # Some other math functions
