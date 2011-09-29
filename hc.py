@@ -128,7 +128,7 @@ cfg = {
     # Angle mode:  must be either 'deg' or 'rad'
     "angle_mode" : "deg",
 
-    # Integer mode: must be 'dec', 'hex', 'oct', or 'bin'.
+    # Integer mode: must be 'dec', 'hex', 'oct', 'bin', or 'ip'.
     "integer_mode" : "dec",
 
     # Prompt to be displayed for each input (may be empty)
@@ -1218,6 +1218,8 @@ def Format(x):
             s = oct(x)
         elif im == "bin":
             s = x.bin()
+        elif im == "ip":
+            s = x.ip()
         else:
             raise Exception("%s'%s' integer mode is unrecognized" % (im, fln()))
         # Prepend a space or + if this is being done in the mpFormat
@@ -2025,6 +2027,8 @@ def ProcessSpecialCommand(cmd, commands_dict):
         cfg["integer_mode"] = "oct"
     elif cmd == "bin":
         cfg["integer_mode"] = "bin"
+    elif cmd == "ip":
+        cfg["integer_mode"] = "ip"
     elif cmd == "iva":
         cfg["iv_mode"] = "a"
         Julian.interval_representation = "a"
@@ -2345,6 +2349,7 @@ def main():
         "hex"      : [None, 0],  # Hex display for integers
         "oct"      : [None, 0],  # Octal for integers
         "bin"      : [None, 0],  # Binary display for integers
+        "ip"       : [None, 0],  # ip address display
         "iva"      : [None, 0],  # Interval display
         "ivb"      : [None, 0],  # Interval display
         "ivc"      : [None, 0],  # Interval display

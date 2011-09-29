@@ -38,6 +38,7 @@ from integer import Zn, isint
 from julian import Julian
 from string import strip
 from si import suffixes_ln
+import socket
 
 try: from pdb import xx
 except: pass
@@ -102,6 +103,33 @@ Ra = r'''
 '''
 rational = re.compile(Ra, re.X | re.I)
 
+ip = re.compile(r"^(\d{1,3})[.](\d{1,3})[.](\d{1,3})[.](\d{1,3})")
+ip6 = re.compile(r"""^(([0-9a-f]{1,4}:){1,1}(:[0-9a-f]{1,4}){1,6})$|
+^(([0-9a-f]{1,4}:){1,2}(:[0-9a-f]{1,4}){1,5})$|
+^(([0-9a-f]{1,4}:){1,3}(:[0-9a-f]{1,4}){1,4})$|
+^(([0-9a-f]{1,4}:){1,4}(:[0-9a-f]{1,4}){1,3})$|
+^(([0-9a-f]{1,4}:){1,5}(:[0-9a-f]{1,4}){1,2})$|
+^(([0-9a-f]{1,4}:){1,6}(:[0-9a-f]{1,4}){1,1})$""")
+ip6 = re.compile(r"""
+    ^((([0-9a-f]{1,4}:){1,6})(:[0-9a-f]{1,4}){1,1})$|
+    ^((([0-9a-f]{1,4}:){1,5})(:[0-9a-f]{1,4}){1,2})$|
+    ^((([0-9a-f]{1,4}:){1,4})(:[0-9a-f]{1,4}){1,3})$|
+    ^((([0-9a-f]{1,4}:){1,3})(:[0-9a-f]{1,4}){1,4})$|
+    ^((([0-9a-f]{1,4}:){1,2})(:[0-9a-f]{1,4}){1,5})$|
+    ^((([0-9a-f]{1,4}:){1,1})(:[0-9a-f]{1,4}){1,6})$
+    ^((([0-9a-f]{1,4}:){1,7}|:):)$|
+    ^(:(:[0-9a-f]{1,4}){1,7})$|
+    ^(((([0-9a-f]{1,4}:){6})(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}))$|
+    ^((([0-9a-f]{1,4}:){5}[0-9a-f]{1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}))$|
+    ^(([0-9a-f]{1,4}:){5}:[0-9a-f]{1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^(([0-9a-f]{1,4}:){1,1}(:[0-9a-f]{1,4}){1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^(([0-9a-f]{1,4}:){1,2}(:[0-9a-f]{1,4}){1,3}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^(([0-9a-f]{1,4}:){1,3}(:[0-9a-f]{1,4}){1,2}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^(([0-9a-f]{1,4}:){1,4}(:[0-9a-f]{1,4}){1,1}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^((([0-9a-f]{1,4}:){1,5}|:):(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$|
+    ^(:(:[0-9a-f]{1,4}){1,5}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$
+""", re.X | re.I)
+
 class Number(object):
     '''Used to generate a number object from a string.
     '''
@@ -129,7 +157,7 @@ class Number(object):
                     else:
                         suffix = mpf("1e" + str(exponent))
                     s = s[:-1]
-        for func in (self.j, self.i, self.q, self.v, self.r, self.c):
+        for func in (self.ip, self.j, self.i, self.q, self.v, self.r, self.c):
             x = func(s)
             if x != None:
                 if suffix == 1:
@@ -187,6 +215,28 @@ class Number(object):
         except Exception:
             raise
         return None
+
+    def ip(self, s):
+        def unpack(s):
+            v = '0x'
+            for i in range(len(s)):
+                v += '%02x' % ord(s[i])
+            return v
+        mo = ip.match(s)
+        try:
+            if mo:
+                dquad = [ int(i) for i in mo.groups() if i ]
+                if max(dquad) > 255:
+                    return None
+                ps = socket.inet_pton(socket.AF_INET, s)
+                return self.i(unpack(ps))
+            else:
+                mo = ip6.match(s)
+                if mo:
+                    ps = socket.inet_pton(socket.AF_INET6, s)
+                    return self.i(unpack(ps))
+        except:
+            return None
 
     def q(self, s):
         mo = rational.match(s)

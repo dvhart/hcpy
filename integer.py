@@ -43,6 +43,7 @@ Uns binary 2's comp
 from warnings import warn
 from debug import *
 from mpmath import mpf, mpi
+import socket
 
 try: from pdb import xx  # pdb.set_trace is xx; easy to find for debugging
 except: pass
@@ -303,6 +304,17 @@ class Zn(object):
         if Zn.num_bits != 0:
             assert len(s) == Zn.num_bits, "s='%s'  %d bits" % (s, Zn.num_bits)
         return sign + "0b" + s + t
+
+    def ip(self):
+        'IP address representation'
+        pack = lambda n: n>0 and pack(n>>8)+chr(n&0xff) or ''
+
+        v = pack(self.n)
+        if self.n > 0xffffffff:
+            # ipv6 address?
+            return socket.inet_ntop(socket.AF_INET6, v)
+        else:
+            return socket.inet_ntop(socket.AF_INET, v)
 
     def __int__(self):
         return self.n
