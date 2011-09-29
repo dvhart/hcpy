@@ -8,8 +8,8 @@ Also provides the inverse mapping.
 '''
 
 # SI suffixes, number to letter
-suffixes_nl = { -24:"y", -21:"z", -18:"a", -15:"f", -12:"p", -9:"n", 
-                 -6:"u",  -3:"m",   0:"",    3:"k",   6:"M",  9:"G", 
+suffixes_nl = { -24:"y", -21:"z", -18:"a", -15:"f", -12:"p", -9:"n",
+                 -6:"u",  -3:"m",   0:"",    3:"k",   6:"M",  9:"G",
                  12:"T",  15:"P",  18:"E",  21:"Z",  24:"Y"}
 
 # SI suffixes, letter to number

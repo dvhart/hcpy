@@ -1,23 +1,23 @@
-''' 
+'''
 $Id: integer.py 1.22 2009/02/10 05:24:01 donp Exp $
 
 Zn objects can be set to behave as a signed or unsigned n n-bit integer
 in addition to a regular python integer.  The properties you can set
 are:
- 
+
     bits        Must be >= 0.  If 0, then the object behaves like a
-                regular python integer.  If > 0, then the object 
+                regular python integer.  If > 0, then the object
                 behaves like an integer with that number of bits.
- 
+
     signed      If true, behaves as a signed integer; otherwise
                 behaves as an unsigned integer.  Since the normal unlimited
                 precision python integers cannot have an unsigned
                 characteristic, this only applies when bits is
                 nonzero.
- 
+
     C_division  If True, integer division behaves like it does in C;
                 i.e., 3/8 == -3/8 == 3/-8 == 0.  If False, then the
-                behavior is pythonic:  floor division.  This means 
+                behavior is pythonic:  floor division.  This means
                 -3/8 == 3/-8 == -1.
 
 Four bit two's complement representation:
@@ -174,7 +174,7 @@ class Zn(object):
 
     def get_value(self):
         return self.n
-        
+
     value = property(get_value, set_value, doc="Integer's value")
 
     def set_negate_zero(self, value):
@@ -357,15 +357,15 @@ class Zn(object):
         '''Dealing with the subtleties of 2's complement arithmetic.
         For further details, see
         http://en.wikipedia.org/wiki/Two%27s_complement_arithmetic.
- 
+
         The negate_zero flag allows three different behaviors with
         regards to negating zero.  I'll use 4-bit integer arithmetic
         to illustrate things.
- 
+
             0   Normal 2's complement arithmetic.  -Zn(-8) == Zn(-8).
             1   -Zn(-8) == Zn(0), -Zn(0) == Zn(0).
             2   -Zn(-8) == Zn(0), -Zn(0) == Zn(-8).
- 
+
         In 2's complement arithmetic, the negative of a number is
         gotten by inverting the bits and adding one.  This is handy
         from a hardware perspective because it's fast, but it does
@@ -376,9 +376,9 @@ class Zn(object):
         values represented go from -2**n to (2**n)-1; 2**n, the
         absolute value of -2**n, can't be represented.  Thus, the only
         logical way to handle abs(-2**n) is to raise an exception.
- 
+
         Here are the bit representations:
-             U        S           S   U 
+             U        S           S   U
              7  0111  7    1111  -1  15
              6  0110  6    1110  -2  14
              5  0101  5    1101  -3  13
@@ -389,7 +389,7 @@ class Zn(object):
              0  0000  0    1000  -8   8
         The S are the signed numbers and the U are the unsigned
         numbers.
- 
+
         The other two situations are provided should the user prefer
         to see that behavior.  All three behaviors are a bit
         counterintuitive, but negate_zero == 1 is probably closest to
@@ -409,7 +409,7 @@ class Zn(object):
         investigate.  I reproduced the behavior on 4-bit integers and
         then understood what was going on.  I wish I had read the
         wikipedia article first, as it would have saved me a bunch of
-        time.  :^)  For your final lesson in 2's complement arithmetic, 
+        time.  :^)  For your final lesson in 2's complement arithmetic,
         predict what -9223372036854775808<s64> squared is.
 
         This also indicates a lesson I learned in a software course:
@@ -451,7 +451,7 @@ class Zn(object):
     def __div__(self, y):
         y = self._check_type(y)
         if Zn.use_C_division:
-            if Zn.is_signed == True: 
+            if Zn.is_signed == True:
                 sign = self._sgn(self.n)*self._sgn(y.n)
                 if Zn.num_bits != 0:
                     assert -(Zn.base >> 1) <= self.n < (Zn.base >> 1)
@@ -506,52 +506,52 @@ class Zn(object):
         else:
             return -1
 
-    def __and__(self, y): 
+    def __and__(self, y):
         y = self._check_type(y)
         return Zn(self.value & y.value)
 
-    def __iand__(self, y): 
+    def __iand__(self, y):
         y = self._check_type(y)
         self.value &= y.value
         return self
 
-    def __or__(self, y): 
+    def __or__(self, y):
         y = self._check_type(y)
         return Zn(self.value | y.value)
 
-    def __ior__(self, y): 
+    def __ior__(self, y):
         y = self._check_type(y)
         self.value |= y.value
         return self
 
-    def __xor__(self, y): 
+    def __xor__(self, y):
         y = self._check_type(y)
         return Zn(self.value ^ y.value)
 
-    def __ixor__(self, y): 
+    def __ixor__(self, y):
         y = self._check_type(y)
         self.value ^= y.value
         return self
 
-    def __lshift__(self, y): 
+    def __lshift__(self, y):
         y = self._check_type(y)
         return Zn(self.value << y.value)
 
-    def __ilshift__(self, y): 
+    def __ilshift__(self, y):
         y = self._check_type(y)
         self.value <<= y.value
         return self
 
-    def __rshift__(self, y): 
+    def __rshift__(self, y):
         y = self._check_type(y)
         return Zn(self.value >> y.value)
 
-    def __irshift__(self, y): 
+    def __irshift__(self, y):
         y = self._check_type(y)
         self.value >>= y.value
         return self
 
-    def __invert__(self): 
+    def __invert__(self):
         return Zn(~self.value)
 
     def __truediv__(self, y):
@@ -559,7 +559,7 @@ class Zn(object):
 
 if __name__ == "__main__":
     # Run unit tests
-    # Signed:    0  1  2  3  4  5  6  7  -8  -7  -6  -5  -4  -3  -2  -1 
+    # Signed:    0  1  2  3  4  5  6  7  -8  -7  -6  -5  -4  -3  -2  -1
     # Unsigned:  0  1  2  3  4  5  6  7   8   9  10  11  12  13  14  15
     def sgn(x):
         if x < 0: return -1
@@ -604,7 +604,7 @@ if __name__ == "__main__":
                 assert x+y == Zn(i+j)
                 assert x-y == Zn(i-j)
                 assert x*y == Zn(i*j)
-                try: 
+                try:
                     sign = sgn(i)*sgn(j)
                     assert x//y == Zn(sign*((abs(i) % m)//(abs(j) % m)))
                 except ZeroDivisionError: pass
@@ -619,7 +619,7 @@ if __name__ == "__main__":
                 assert x+y == Zn(i+j)
                 assert x-y == Zn(i-j)
                 assert x*y == Zn(i*j)
-                try: 
+                try:
                     assert x//y == Zn(i//j)
                 except ZeroDivisionError: pass
     def BitTwiddling():
@@ -653,7 +653,7 @@ if __name__ == "__main__":
         '''Note that using lambda functions for the arithmetic operations
         doesn't work correctly -- e.g., 3 + Zn is allowed.
         '''
-        def plus(x, y): 
+        def plus(x, y):
             return x + y
         x = Zn(1)
         oplist = (

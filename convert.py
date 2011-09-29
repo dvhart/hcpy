@@ -45,7 +45,7 @@ MPI = "i"
 JUL = "t"
 
 def Convert(x, arg_type, digits=0):
-    '''Converts amongst the numerical types.  Some conversions lose 
+    '''Converts amongst the numerical types.  Some conversions lose
     information.  The digits argument controls the precision of a conversion
     of a real to a rational.
     '''
@@ -108,9 +108,9 @@ if __name__ == "__main__":
     def TestConvert():
         n = 1
         number_types = (
-            Zn(n), 
-            Rational(n, n), 
-            mpf(n), 
+            Zn(n),
+            Rational(n, n),
+            mpf(n),
             mpc(n, n),
             mpi(n),
             Julian(n),

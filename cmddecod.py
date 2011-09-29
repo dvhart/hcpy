@@ -38,10 +38,10 @@ class CommandDecode:
     of commands.  The class will try to complete the command if a
     whole command is not typed in.  Run this file as a script to
     get an interactive demo.
- 
-    Here's an example of its use.  cmd_dict is a dictionary of all 
+
+    Here's an example of its use.  cmd_dict is a dictionary of all
     the commands you want recognized (the commands are the keys).
- 
+
     # We'll initialize so that the command's case is ignored
     ignore_case = 1
     id_cmd = CommandDecode(cmd_dict, ignore_case)
@@ -61,7 +61,7 @@ class CommandDecode:
             print "It matched the following commands:"
             for cmd in command:
                 print "  ", cmd
- 
+
     This shows that the identify_cmd() method will return None if the
     user's string is not recognized, a single string if it is recognized
     as a unique command, and a list if it matched more than one possible
@@ -75,7 +75,7 @@ class CommandDecode:
             raise CommandDecodeError("dictionary must have > 0 elements")
         if type(commands) != type({}):
             raise CommandDecodeError("must pass in dictionary")
-        # Build index dictionary; each key is the first letter of the 
+        # Build index dictionary; each key is the first letter of the
         # command and each element is a list of commands that have that
         # first letter.
         self.index = {}
@@ -160,4 +160,4 @@ if __name__ == "__main__":
             x.sort()
             print "'%s' is ambiguous:  %s" % (cmd, `x`)
         cmd = raw_input()
-            
+

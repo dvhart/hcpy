@@ -66,24 +66,24 @@ class Julian(object):
         The basic need is for an mpf or mpi object that represents the
         standard astronomical Julian day.  mpi objects are allowed so
         as to model uncertainty in a date.
- 
+
         string:
             "h:[m[:s]]"
-                Hour, minute, second format that represents a time 
+                Hour, minute, second format that represents a time
                 today.
             "dd.dd[m[y]]"
                 dd.ddd is a real number representing the day number
                 (integer part) and the time as a decimal fraction.
-                m is a string representing the month; the number of 
+                m is a string representing the month; the number of
                 characters are in the class variable month_name_size.
                 y, if present, represents the year; if not present, the
                 current year is taken; y must be an integer.
             "d[m[y]][:hh[:mm[:ss]]]"
                 d is an integer between 1 and 31 representing the day.
-                m is a string representing the month; the number of 
+                m is a string representing the month; the number of
                 characters are in the class variable month_name_size.
                 y, if present, represents the year; if not present, the
-                current year is taken; y must be an integer.  hh and 
+                current year is taken; y must be an integer.  hh and
                 mm are the integer hour and minute and must be
                 integers between 0 and 59. ss is a real number of
                 seconds >= 0 and < 60.
@@ -219,7 +219,7 @@ class Julian(object):
                     y, M, d, h, m, s = form2(date, time)
             else:
                 y, M, d, h, m, s = form1(s)
-            return y, M, d, h, m, s 
+            return y, M, d, h, m, s
         except ValueError:
             raise
         except:
@@ -245,7 +245,7 @@ class Julian(object):
             minute, second = divmod(second, 60)
             hour, minute = divmod(minute, 60)
             second += fractional_seconds
-        else: # New method.  See comments in _to_date() 
+        else: # New method.  See comments in _to_date()
             hours = mpf("24")*fractional_part_of_day
             # Round this value to the nearest microhour
             onemillion = mpf("1e6")
@@ -321,7 +321,7 @@ class Julian(object):
         'Algorithm is on page 61 of Meeus'
         Y, M, D, h, m, s = self._check(year, month, day, hour, minute, second)
         # Add the time to D; D will become a real number
-        D += (mpf(h) + mpf(m)/mpf(60) + mpf(s)/mpf(3600))/mpf(24) 
+        D += (mpf(h) + mpf(m)/mpf(60) + mpf(s)/mpf(3600))/mpf(24)
         if M == 1 or M == 2:
             Y -= 1
             M += 12

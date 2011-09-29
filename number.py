@@ -82,12 +82,12 @@ complex3 = re.compile(C3, re.X | re.I)
 complex4 = re.compile(C4, re.X | re.I)
 
 # Rationals:  "a/b", and "axb/c" forms are allowed where a and b are
-# integers and x is one or more of the following characters: '+- '.  
+# integers and x is one or more of the following characters: '+- '.
 # b and c are always positive; a may be positive or negative.
 Ra = r'''
     ^   # Mixed fraction
     ([-+])?             # Optional sign
-    (\d+)               # Integer 
+    (\d+)               # Integer
     [-+ ]+              # Separation character
     (\d+)               # Numerator
     /                   # Fraction separator
@@ -131,7 +131,7 @@ class Number(object):
                     s = s[:-1]
         for func in (self.j, self.i, self.q, self.v, self.r, self.c):
             x = func(s)
-            if x != None: 
+            if x != None:
                 if suffix == 1:
                     return x
                 if isint(x):
@@ -152,7 +152,7 @@ class Number(object):
     def j(self, s):
         '''Check to see if it's a Julian date/time form.  We only allow
         two forms:  'dS[y[:...]]' where S is a string for the month or
-        '.+:.+' (regexp syntax) where it contains a colon and means a 
+        '.+:.+' (regexp syntax) where it contains a colon and means a
         time today.  'now' and 'today' are also allowed.
         '''
         if s == "now" or s == "today" or ":" in s:
@@ -335,10 +335,10 @@ if __name__ == "__main__":
     nums = {
         # Integers
         Zn(0) : (
-            "0", "+0", "-0", "000", "+000", "-000", 
+            "0", "+0", "-0", "000", "+000", "-000",
             ),
         Zn(1) : (
-            "1", "+1", "01", "+01", "001", "+001", 
+            "1", "+1", "01", "+01", "001", "+001",
             ),
         Zn(-1) : (
             "-1", "-01", "-001",
@@ -356,7 +356,7 @@ if __name__ == "__main__":
             "000.000", "+000.000", "-000.000",
             ),
         mpf(1) : (
-            "1.", "+1.", "1.0", "+1.0", 
+            "1.", "+1.", "1.0", "+1.0",
             "1.0e0", "+1.0e0",
             "1.0E0", "+1.0E0",
             ),
@@ -407,7 +407,7 @@ if __name__ == "__main__":
             ),
         mpc(1, 1) : (
             "1+1i", "1+1.i", "1.+1i", "1.+1.i",
-            "1+i", "1.0+i", "1.000+i", 
+            "1+i", "1.0+i", "1.000+i",
             ),
         mpc("4.9", -1) : (
             "4.9-1i", "4.9-1.i", "49e-1-1i",
@@ -443,8 +443,8 @@ if __name__ == "__main__":
             "[1, 3]", "[1.0, 3]", "[1, 3.0]", "[1.0, 3.0]",
             "[1,3]", "[1.0,3]", "[1,3.0]", "[1.0,3.0]",
             "[   1,     3]", "[   1.0,3]", "[     1,     3.0]",
-            "1.5 +- 0.5", "1.5+-0.5", "1.5+-      0.5", "1.5     +-0.5", 
-            "1.5      +-      0.5", "15e-1 +- 500e-3", 
+            "1.5 +- 0.5", "1.5+-0.5", "1.5+-      0.5", "1.5     +-0.5",
+            "1.5      +-      0.5", "15e-1 +- 500e-3",
             "1.5(33.33333333333333333333%)", "1.5  (33.33333333333333333333%)",
             "1.5    (     33.33333333333333333333%)",
             "1.5    (     33.33333333333333333333     % )",

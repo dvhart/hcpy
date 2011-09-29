@@ -3,7 +3,7 @@ $Id: mpformat.py 1.23 2009/02/09 17:04:00 donp Exp $
 
 Provides the mpFormat object that formats mpmath's mpf floating point
 numbers in a variety of ways.  See the docstring for details.
- 
+
 ---------------------------------------------------------------------------
 Copyright (c) 2009, Don Peterson
 All rights reserved.
@@ -88,17 +88,17 @@ class mpFormat(object):
          12.34567890k
 
     Class variables:
-        
-        fix_low     If the number is less than this, the fix mode 
+
+        fix_low     If the number is less than this, the fix mode
                     underflows to the sci format.
 
-        fix_high    If the number is greater than this, the fix mode 
+        fix_high    If the number is greater than this, the fix mode
                     overflows to the sci format.
 
-        sig_low     If the number is less than this, the sig mode 
+        sig_low     If the number is less than this, the sig mode
                     underflows to the sci format.
 
-        sig_high    If the number is greater than this, the sig mode 
+        sig_high    If the number is greater than this, the sig mode
                     overflows to the sci format.
 
     '''
@@ -192,16 +192,16 @@ class mpFormat(object):
             raise ValueError("_to_estr:  dps must be >= 0")
         dps = max(1, min(dps, mp.dps))
         if not s[1]:
-            if s == fzero: 
+            if s == fzero:
                 if mpFormat.implicit_plus_sign: sign = " "
                 if mpFormat.explicit_plus_sign: sign = "+"
                 return sign, '0', 0
-            if s == finf or s == fninf or s == fnan: 
+            if s == finf or s == fninf or s == fnan:
                 raise ValueError("_to_estr:  should have caught pathology")
         sign, digits, exponent = to_digits_exp(s, dps+3)
         if sign == "" and mpFormat.implicit_plus_sign: sign = " "
         if (sign == "" or sign == " ") and \
-           mpFormat.explicit_plus_sign: 
+           mpFormat.explicit_plus_sign:
             sign = "+"
         if not dps:
             if digits[0] in '56789':
@@ -267,7 +267,7 @@ class mpFormat(object):
         s = sign + mant + mpFormat.exponent_character + \
             (mpFormat.exponent_format % exp)
         if not mpFormat.show_zero_exponent and exp == 0:
-            return sign + mant 
+            return sign + mant
         return s
 
     def eng(self, number):
@@ -322,13 +322,13 @@ class mpFormat(object):
         if exp < 0:
             mant = "0" + dp + ("0"*abs(exp)) + mant
         elif exp == 0:
-            if digits: 
+            if digits:
                 if len(mant) < digits:
                     mant += "0"*max(0, digits - len(mant))
             mant = "0" + dp + mant
         else:
             mant += "0"*max(0, exp - len(mant))
-            if digits: 
+            if digits:
                 if len(mant) < digits:
                     mant += "0"*max(0, digits - len(mant))
                 mant = mant[:exp] + dp + mant[exp:]

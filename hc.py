@@ -129,7 +129,7 @@ cfg = {
 
     # Integer mode: must be 'dec', 'hex', 'oct', or 'bin'.
     "integer_mode" : "dec",
-    
+
     # Prompt to be displayed for each input (may be empty)
     "prompt" : "> ",
 
@@ -175,7 +175,7 @@ cfg = {
     # tempfile standard library feature, leave tempfile as the empty
     # string.
     "editor" : "d:/bin/vim/vim71/vim.exe",
-    "tempfile" : "",  
+    "tempfile" : "",
     # How many items of the stack to show.  Use 0 for all.
     "stack_display" : 1,
 
@@ -193,7 +193,7 @@ cfg = {
     "config_save_registers" : "",
     "config_save_stack" :     "",
 
-    # The following variables determines how floating point numbers are 
+    # The following variables determines how floating point numbers are
     # formatted. Legitimate values are:  fix for fixed, sig for significant
     # figures, sci for scientific, eng for engineering, engsi for
     # engineering with SI prefixes after the number, and "none".  If
@@ -209,7 +209,7 @@ cfg = {
     "fp_show_plus_sign" : False,  # If true, "+3.4" instead of " 3.4"
     "fp_comma_decorate" : True,   # If true, 1,234 instead of 1234
     "fp_cuddle_si" : False,       # If true, "12.3k" instead of "12.3 k"
-    
+
     # Set how many digits of precision the mpmath library should use.
     "prec" : 30,
 
@@ -258,7 +258,7 @@ cfg = {
     # registers of this program.  Example:  an astronomy.py script could
     # prompt you for which astronomical constant you wanted to use.  Set
     # this entry to the empty string or None if you don't want this
-    # behavior.  You can also give the name of the function you want to 
+    # behavior.  You can also give the name of the function you want to
     # be called.  This function will be called with the display object,
     # which you can use to send messages to the user.
     "helper_scripts" : "d:/p/math/hcpy/helpers",
@@ -338,7 +338,7 @@ def Conv2Rad():
 #---------------------------------------------------------------------------
 # Binary functions
 
-def add(x, y): 
+def add(x, y):
     if use_modular_arithmetic(x, y):
         return (x + y) % cfg["modulus"]
     TypeCheck(x, y)
@@ -347,7 +347,7 @@ def add(x, y):
     except:
         return y + x
 
-def subtract(x, y): 
+def subtract(x, y):
     if use_modular_arithmetic(x, y):
         return (x - y) % cfg["modulus"]
     TypeCheck(x, y)
@@ -356,7 +356,7 @@ def subtract(x, y):
     except:
         return -y + x
 
-def multiply(x, y): 
+def multiply(x, y):
     if use_modular_arithmetic(x, y):
         return (x*y) % cfg["modulus"]
     TypeCheck(x, y)
@@ -764,7 +764,7 @@ def xch():
     except:
         display.msg("%sStack is not large enough" % fln())
 
-def roll(): 
+def roll():
     try:
         stack.roll()
     except:
@@ -779,7 +779,7 @@ def Del():
 def Cast(x, newtype, use_prec=False):
     '''If use_prec == True, use mp.dps.
     '''
-    try: 
+    try:
         try:
             if use_prec == True:
                 digits = 0
@@ -792,25 +792,25 @@ def Cast(x, newtype, use_prec=False):
         display.msg("%sCouldn't perform conversion" % fln())
         return None
 
-def Cast_i(x): 
+def Cast_i(x):
     return Cast(x, INT)
 
-def Cast_qq(x): 
+def Cast_qq(x):
     return Cast(x, RAT, use_prec=True)
 
-def Cast_q(x): 
+def Cast_q(x):
     return Cast(x, RAT, use_prec=False)
 
-def Cast_r(x): 
+def Cast_r(x):
     return Cast(x, MPF)
 
-def Cast_c(x): 
+def Cast_c(x):
     return Cast(x, MPC)
 
-def Cast_t(x): 
+def Cast_t(x):
     return Cast(x, JUL)
 
-def Cast_v(x): 
+def Cast_v(x):
     return Cast(x, MPI)
 
 def prec(x):
@@ -1020,28 +1020,28 @@ def SaveConfiguration():
     if cfg["persist"]:
         c, r, s = cfg["config_file"], cfg["config_save_registers"], \
                   cfg["config_save_stack"]
-        msg = "%sCould not write %s to:\n  %s" 
-        if c: 
-            try: 
+        msg = "%sCould not write %s to:\n  %s"
+        if c:
+            try:
                 p = GetFullPath(c)
                 WriteDictionary(p, "cfg", cfg)
-            except: 
+            except:
                 display.msg(msg % (fln(), "config", p))
-        if r: 
-            try:    
+        if r:
+            try:
                 p = GetFullPath(r)
                 WriteDictionary(p, "registers", registers)
-            except:     
+            except:
                 display.msg(msg % (fln(), "registers", p))
         if s:
-            try:    
+            try:
                 p = GetFullPath(s)
                 WriteList(p, "mystack", stack.stack)
-            except:     
+            except:
                 display.msg(msg % (fln(), "stack", p))
 
 def GetLineWidth():
-    '''Try to get the current console's linewidth by reading the 
+    '''Try to get the current console's linewidth by reading the
     COLUMNS environment variable.  If it's present, use it to set
     cfg["line_width"].
     '''
@@ -1060,7 +1060,7 @@ def GetConfiguration():
         c, r, s = cfg["config_file"], cfg["config_save_registers"], \
                   cfg["config_save_stack"]
         if c and not use_default_config_only:
-            try: 
+            try:
                 d = {}
                 p = GetFullPath(c)
                 execfile(p, d, d)
@@ -1071,8 +1071,8 @@ def GetConfiguration():
                       nl + "  " + c
                 display.msg(msg)
                 display.msg(us)
-        if r: 
-            try: 
+        if r:
+            try:
                 d = {}
                 p = GetFullPath(r)
                 execfile(p, d, d)
@@ -1083,7 +1083,7 @@ def GetConfiguration():
                       nl + "  " + r
                 display.msg(msg)
         if s:
-            try: 
+            try:
                 d = {}
                 p = GetFullPath(s)
                 execfile(p, d, d)
@@ -1212,7 +1212,7 @@ def Format(x):
     elif isinstance(x, mpc):
         space = cfg["imaginary_space"]
         s = ""
-        if space: 
+        if space:
             s = " "
         sre = str(x.real)
         sim = str(abs(x.imag))
@@ -1254,7 +1254,7 @@ def Format(x):
                     mag = EllipsizeString(m, size, e)
                     ang = EllipsizeString(a, size, e)
                 s = m + cfg["polar_separator"] + a + " " + ang_sym
-            else: 
+            else:
                 # Rectangular mode
                 if brief:
                     size = (width - stack_header_allowance)//2 - 1
@@ -1484,7 +1484,7 @@ def PrintRegisters():
     display.msg(s)
 
 def CheckEnvironment(commands_dict):
-    '''Look at the environment variables defined in 
+    '''Look at the environment variables defined in
     cfg["environment"] and execute any commands in them.  Note we only
     do this if we're not using the default configuation (-d option).
     '''
@@ -1506,10 +1506,10 @@ def CheckEnvironment(commands_dict):
             except Exception, e:
                 msg = "%sFor environment variable '%s', got exception:" + nl
                 display.msg(msg % (fln(), var) + str(e))
-                
+
 
 def RunChecks(commands_dict):
-    '''Run checks on various things to flag things that might need to be 
+    '''Run checks on various things to flag things that might need to be
     fixed.
     '''
     if not run_checks:  return
@@ -1525,7 +1525,7 @@ def RunChecks(commands_dict):
     if s: display.msg(s)
 
 def ExecutedCommandOK(cmd, args, commands_dict):
-    '''command is the string containing the command to execute.  args 
+    '''command is the string containing the command to execute.  args
     contains any alternative arguments for this command.  commands_dict is a
     dictionary defining the dispatch function with other needed info.
     Return True unless an exception occurred and a message already was
@@ -1550,7 +1550,7 @@ def ExecutedCommandOK(cmd, args, commands_dict):
                 prefunc = extra_dict["pre"]
                 prefunc()
     if num_stack_args == 0:
-        try:    
+        try:
             status = func()
             # If you don't want the stack displayed after the function
             # is called, have it return False.
@@ -1561,7 +1561,7 @@ def ExecutedCommandOK(cmd, args, commands_dict):
             return False
     elif num_stack_args == 1:
         # Unary function
-        try: 
+        try:
             x = stack[0]
             stack.lastx = x
             if isinstance(x, Zn):
@@ -1582,24 +1582,24 @@ def ExecutedCommandOK(cmd, args, commands_dict):
         except KeyboardInterrupt:
             display.msg("%sInterrupted" % fln())
             return False
-        except Exception, e: 
+        except Exception, e:
             display.msg("%s" % fln() + str(e))
             return False
     elif num_stack_args == 2:
         # Binary function
         size = stack.size()
-        try: 
+        try:
             x, y = stack[0], stack[1]
             x1 = x
             if isinstance(x, Zn): x = int(x)
             if isinstance(y, Zn): y = int(y)
-        except Exception, e: 
+        except Exception, e:
             display.msg("%s" % fln() + str(e))
             return False
         try:
             stack.pop()
             stack.pop()
-        except Exception, e: 
+        except Exception, e:
             display.msg("%s" % fln() + str(e))
             # Fix stack if corrupted
             if stack.size() == size - 1:
@@ -1670,7 +1670,7 @@ def GetRegisterName(cmd):
     if len(cmd) < 2:
         raise ValueError("%sYou must give a register name" % fln())
     return cmd[1:]
-    
+
 def RecallRegister(cmd):
     name = GetRegisterName(cmd)
     if name not in registers:
@@ -1692,7 +1692,7 @@ def EditXRegister():
         stack[0] = d["x"]
     except Exception, e:
         raise Exception("%sCouldn't edit x" % fln())
-        
+
 def Int(cmd):
     if len(cmd) > 3:
         s = cmd[3:]
@@ -1773,7 +1773,7 @@ def Tee(cmd):
         if len(cmd) < 4:
             raise Exception("%s>>> command requires a file name" % fln())
         chop_off_leader = 3
-    file = cmd[chop_off_leader:] 
+    file = cmd[chop_off_leader:]
     try:
         f = open(file, write_mode)
         display.logon(f)
@@ -1812,7 +1812,7 @@ def ParseCommandInput(cmd):
     cfg["command_separator"] string, then the user wanted those to separate
     commands, as some of the individual commands contain whitespace.
     Otherwise, parse on whitespace.  Return a list of one or more command
-    strings. 
+    strings.
     '''
     assert cmd, "Error in program:  cmd is empty string"
     sep = cfg["command_separator"]
@@ -1906,7 +1906,7 @@ def ReadInputFromFile(command, commands_dict):
 
 def ProcessSpecialCommand(cmd, commands_dict):
     '''This function is for commands that don't fit the general pattern or
-    are just easiest to implement here.  We return either status_ok, 
+    are just easiest to implement here.  We return either status_ok,
     status_ok_no_display, status_error, or status_unknown_command
     or status_quit.
     '''
@@ -1992,7 +1992,7 @@ def ProcessCommand(cmd, commands_dict, last_command):
     commands to actions.  If last_command is true, then the stack should
     be printed when finished.  Our return values are coded as follows:
         status_ok       Everything fine
-        status_quit     Received a quit command   
+        status_quit     Received a quit command
         status_error    A command resulted in an error
         status_interrupted  The processing was interrupted
     otherwise return false.
@@ -2008,7 +2008,7 @@ def ProcessCommand(cmd, commands_dict, last_command):
         if x == "reset" and cmd != "reset":
             display.msg("'reset' command needs to be typed in full")
             return status_error
-        if isinstance(x, type("")): 
+        if isinstance(x, type("")):
             status = ProcessSpecialCommand(x, commands_dict)
         else:
             status = ProcessSpecialCommand(cmd, commands_dict)
@@ -2048,7 +2048,7 @@ def ProcessCommand(cmd, commands_dict, last_command):
         # Now see if we can identify this command
         if not ok:
             x = c.identify_cmd(cmd)
-            if isinstance(x, type("")): 
+            if isinstance(x, type("")):
                 try:
                     ok = ExecutedCommandOK(x, arg, commands_dict)
                     if cfg["modulus"] != 1:
@@ -2085,7 +2085,7 @@ def ProcessCommand(cmd, commands_dict, last_command):
         return status_ok
 
 def GetLineOfInput(stream=None):
-    # 
+    #
     global stdin_finished
     if stream:
         s = stream.readline()
@@ -2142,7 +2142,7 @@ def main():
         "comb"     : [combination, 2],  # Combinations of y taken x at a time
         "perm"     : [permutation, 2],  # Permutations of y taken x at a time
         "pow"      : [m.power, 2],  # Raise y to the power of x
-        "atan2"    : [m.atan2, 2, {"post" : Conv2Deg}], # 
+        "atan2"    : [m.atan2, 2, {"post" : Conv2Deg}], #
         "hypot"    : [m.hypot, 2],  # sqrt(x*x + y*y)
         "round"    : [Round, 2],  # Round y to nearest x
         "in"       : [In, 2],     # True if x is in interval y
@@ -2258,8 +2258,8 @@ def main():
         "comma"    : [comma, 1], # Toggle comma decorating
         "fix"      : [None, 0],  # Fixed number of places after decimal point
         "sig"      : [None, 0],  # Display signification figures
-        "sci"      : [None, 0],  # Scientific notation display 
-        "eng"      : [None, 0],  # Engineering display 
+        "sci"      : [None, 0],  # Scientific notation display
+        "eng"      : [None, 0],  # Engineering display
         "engsi"    : [None, 0],  # Engineering display with SI prefix
         "brief"    : [brief, 1],  # Fit number on one line
         "polar"    : [Polar, 0],  # Complex number display

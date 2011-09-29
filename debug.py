@@ -38,8 +38,8 @@ debug_flag = False  # Turn on to enable file:linenumbers in exceptions
 def fln():
     'Return a string showing the file and line number if debug is on.'
     s = extract_stack()[-2:][0]
-    global debug_flag 
-    if debug_flag == True: 
+    global debug_flag
+    if debug_flag == True:
         return "[%s:%d] " % (s[0], s[1])
     else:
         return ""

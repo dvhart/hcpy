@@ -177,7 +177,7 @@ class Rational(object):
             sign = "-"
         whole, remainder = divmod(abs(self.n), abs(self.d))
         if  whole == 0:
-            if remainder == 0: 
+            if remainder == 0:
                 return "0"
             else:
                 return(sign + "%s/%s" % (remainder, self.d))
@@ -256,7 +256,7 @@ class Rational(object):
         approximation whose difference from x is less than 1/10**mp.dps;
         i.e., the approximation as good as the current number of digits
         used in the mpmath library.
-        
+
         x will be converted to an mpf type.  This routine is converted from
         a C routine I downloaded from NETLIB on Tue Nov 11 18:08:26 1997
         from NIST Guide to Available Math Software, source for module FRAC
@@ -264,10 +264,10 @@ class Rational(object):
 
         digits sets the precision of the conversion at 10**(-digits).  If
         it is 0, then mp.dps is used.
- 
+
         Set max_iterations to a postive nonzero value to limit the number
         of iterations.
- 
+
         See http://gams.nist.gov/,
         http://gams.nist.gov/serve.cgi/Package/C/,
         http://www.netlib.org/c/frac (location of actual source)
@@ -353,32 +353,32 @@ if __name__ == "__main__":
 
     def generalTests():
         three = Rational(3)
-        assert(str(three) == "3/1") 
+        assert(str(three) == "3/1")
         third = Rational(1,3)
-        assert(str(third) == "1/3") 
+        assert(str(third) == "1/3")
         fifth = Rational(1,5)
-        assert(str(fifth) == "1/5") 
-        assert(str(third + fifth) == "8/15") 
-        assert(str(third*fifth) == "1/15") 
-        assert(str(third-fifth) == "2/15") 
-        assert(str(fifth/third) == "3/5") 
-        assert(float(fifth) == 0.2) 
-        assert(float(third) == 1/3.) 
+        assert(str(fifth) == "1/5")
+        assert(str(third + fifth) == "8/15")
+        assert(str(third*fifth) == "1/15")
+        assert(str(third-fifth) == "2/15")
+        assert(str(fifth/third) == "3/5")
+        assert(float(fifth) == 0.2)
+        assert(float(third) == 1/3.)
         assert(third.numer() == 1)
         assert(third.denom() == 3)
         new_third = Rational(third)  # Show we support init from ourselves
-        assert(str(new_third) == "1/3") 
+        assert(str(new_third) == "1/3")
 
     def mixedTests():
         badPi = Rational(22,7)
         Rational.mixed = True
-        assert(str(badPi) == "3 1/7") 
+        assert(str(badPi) == "3 1/7")
         proper_fraction = Rational(3,5)
-        assert(str(proper_fraction) == "3/5") 
+        assert(str(proper_fraction) == "3/5")
         whole_num  =  Rational(8,2)
-        assert(str(whole_num) == "4") 
+        assert(str(whole_num) == "4")
         zero  =  Rational(0,1)
-        assert(str(zero) == "0") 
+        assert(str(zero) == "0")
 
     def errorTests():
         try:
@@ -400,7 +400,7 @@ if __name__ == "__main__":
         # sub
         assert no_diff(onep2 - third, onep2 - 1/mpf(3))
         # rsub
-        assert no_diff(third - onep2, -onep2 + 1/mpf(3)) 
+        assert no_diff(third - onep2, -onep2 + 1/mpf(3))
         # mul
         assert no_diff(onep2 * third, onep2 * 1/mpf(3))
         # rmul
@@ -515,7 +515,7 @@ if __name__ == "__main__":
             num = mpf(approx.n)/approx.d
             #assert abs(pi - num) < factor*mpf(10)**(-digits)
             if abs(pi - num) > factor*mpf(10)**(-digits):
-                print "digits", digits, 
+                print "digits", digits,
                 a = str(abs(pi - num))
                 print a[:6], a[-6:]
     generalTests()

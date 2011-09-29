@@ -47,17 +47,17 @@ class Stack(object):
     calculator.  The minimum functionality is present, however.  You, the
     user, will need to handle the persistence of the stack (should you wish
     it).
-  
+
     Besides providing the stack and the usual stack functions, the only
     major functionality is the machinery to apply unary and binary
     functions to the elements on the stack.  You pass in the function
     you want to execute with along with optional indicators of the type(s)
     that the argument(s) must be converted to.
- 
+
     There are five numerical types supported:  integers, Rational objects,
     and the three types from the mpmath module:  mpf (reals), mpc (complex
     numbers), and mpi (interval numbers).
- 
+
     Note that python floats are NOT supported, as this calculator engine is
     intended to support arbitrary precision arithmetic.  However, there's
     nothing to prevent you from storing any objects (floats, strings, etc.)
@@ -84,13 +84,13 @@ class Stack(object):
             if arg_type:
                 x = Convert(x, arg_type)
             result = function(x)
-            self.stack[-1] = result 
+            self.stack[-1] = result
         except Exception, e:
             raise FunctionFailed("%s" % fln() + str(e))
 
     def binary(self, function, arg1_type=None, arg2_type=None):
         '''Apply the function to the two objects on the top of the stack
-        and replace the two top of stack objects with the result.  Note 
+        and replace the two top of stack objects with the result.  Note
         that the next-to-top element of the stack is the first argument
         of the function call -- this is consistent with e.g. typical
         HP RPN calculators.  The arg_types are used to change the type
@@ -138,7 +138,7 @@ class Stack(object):
         self.stack = []
 
     def __setitem__(self, i, value):
-        # i = 0 is top of stack 
+        # i = 0 is top of stack
         if len(self.stack) == 0:
             raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to set item %d)" % i)
         if i < 0 or i >= len(self.stack) - 1:
@@ -191,7 +191,7 @@ class Stack(object):
 
 if __name__ == "__main__":
     # Unit tests
-    def add(x, y): 
+    def add(x, y):
         try: return x + y
         except: return y + x
     def StackManipulation():
