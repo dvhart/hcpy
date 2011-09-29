@@ -69,7 +69,6 @@ class Stack(object):
         last element.
         '''
         self.stack = []
-        self.lastx = 0
 
     def unary(self, function, arg_type=None):
         '''Apply the function to the object on the top of the stack and
@@ -172,7 +171,7 @@ class Stack(object):
         s = '\n'.join(m)
         # Special treatment for the first four registers:  name them x, y,
         # z, t (as is done for HP calculators).
-        if 1:
+        if 0:
             s = s.replace(" 0: ", " x: ")
             s = s.replace(" 1: ", " y: ")
             s = s.replace(" 2: ", " z: ")

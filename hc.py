@@ -178,7 +178,7 @@ cfg = {
     "editor" : "d:/bin/vim/vim71/vim.exe",
     "tempfile" : "",
     # How many items of the stack to show.  Use 0 for all.
-    "stack_display" : 1,
+    "stack_display" : 0,
 
     # If the following variable is True, we will persist our settings from
     # run to run.  Otherwise, our configuration comes from this dictionary
@@ -266,7 +266,6 @@ cfg = {
     "helper_script_function_name" : "main",
 }
 
-# Make a copy of the default configuration for the `reset` command.
 cfg_default = {}
 cfg_default.update(cfg)
 
@@ -675,10 +674,12 @@ def rand():
 # Other functions
 
 def Modulus(x):
+    '''Set up modulus arithmetic with X as the modulus (1 or 0 to cancel)
+    '''
     if isinstance(x, m.mpc) or isinstance(x, m.mpi):
         raise ValueError("%sModulus cannot be a complex or interval number" % fln())
     if x == 0:
-        raise ValueError("%sModulus cannot be zero" % fln())
+        cfg["modulus"] = 1
     else:
         cfg["modulus"] = x
     return None
@@ -1918,8 +1919,6 @@ def ProcessSpecialCommand(cmd, commands_dict):
     if cmd[0] == "?":
         Help(cmd, commands_dict)
         return status_ok_no_display
-    elif cmd == "reset":
-        Reset()
     elif len(cmd) >= 3 and cmd[:3] == "int":
         Int(cmd)
     elif len(cmd) >= 4 and cmd[:4] == "uint":
@@ -2006,9 +2005,6 @@ def ProcessCommand(cmd, commands_dict, last_command):
         # which will become 'bin', yet need to be processed by
         # ProcessSpecialCommand().
         x = c.identify_cmd(cmd)
-        if x == "reset" and cmd != "reset":
-            display.msg("'reset' command needs to be typed in full")
-            return status_error
         if isinstance(x, type("")):
             status = ProcessSpecialCommand(x, commands_dict)
         else:
@@ -2278,7 +2274,7 @@ def main():
         # The none display mode is primarily intended for debugging.  It
         # displays makes the mpmath numbers display in their native formats.
         "none"     : [None, 0],
-        "reset"    : [None, 0], # Reset the calculator state
+        "clear"    : [Reset, 0], # Reset the calculator state
 
         # Some other math functions
         "gamma"    : [gamma, 1],
