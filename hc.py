@@ -796,11 +796,20 @@ def roll():
 def drop(x):
     return None
 
+def drop2(y, x):
+    return None
+
 def dropn(*args):
     return None
 
 def dup(x):
     stack.push(x)
+    return x
+
+def dup2(y, x):
+    stack.push(y)
+    stack.push(x)
+    stack.push(y)
     return x
 
 def dupn(*args):
@@ -2295,8 +2304,10 @@ def main():
         "swap"     : [swap, 0],   # swap x and y
         "roll"     : [roll, 0],  # Roll stack
         "drop"     : [drop, 1],   # Pop x off the stack
+        "drop2"    : [drop2, 2],   # Pop x and y off the stack
         "dropn"    : [dropn, 'x'],   # Pop x items off the stack
         "dup"      : [dup, 1],   # Push a copy of x onto the stack
+        "dup2"     : [dup2, 2],   # Push a copy of x and y onto the stack
         "dupn"     : [dupn, 'x'],  # duplicate top x values on stack
         "depth"    : [depth, 0],  # Push stack depth onto stack
 
