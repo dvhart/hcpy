@@ -2242,7 +2242,6 @@ def main():
         "V"        : [Cast_v, 1],  # Convert to interval number
         "ip"       : [ip, 1],    # Integer part of x
         "fp"       : [Fp, 1],    # Fractional part of x
-        "1/x"      : [reciprocal, 1], # Calculate the reciprocal of x
         "inv"      : [reciprocal, 1], # reciprocal of x
         "chs"      : [chs, 1],   # Change the sign of x
         "~"        : [bit_negate, 1],   # Flip all the bits of x
