@@ -800,11 +800,8 @@ def dropn(*args):
     return None
 
 def dup(x):
-    try:
-        stack.push(x)
-        return x
-    except:
-        display.msg("%sStack is empty" % fln())
+    stack.push(x)
+    return x
 
 def dupn(*args):
     n = len(args)
