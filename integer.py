@@ -40,7 +40,6 @@ Uns binary 2's comp
  0  0000    0
 '''
 
-from warnings import warn
 from debug import *
 from mpmath import mpf, mpi
 import socket
@@ -200,8 +199,6 @@ class Zn(object):
         self.my_num_bits  = Zn.num_bits
         self.my_is_signed = Zn.is_signed
         if Zn.num_bits == 0:
-            if Zn.is_signed == False:
-                warn("Warning:  changing signed to True")
             Zn.is_signed = True
             self.my_is_signed = True
         else:
