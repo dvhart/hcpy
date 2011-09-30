@@ -759,11 +759,10 @@ def quit():
     pass
 
 def Pi():
-    print m.mpf(m.mp.pi)
     stack.push(m.mpf(m.mp.pi))
 
 def E():
-    stack.push(m.mp.e)
+    stack.push(m.mpf(m.mp.e))
 
 def Enter():
     if stack.size():
