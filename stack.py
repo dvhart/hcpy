@@ -113,7 +113,7 @@ class Stack(object):
             raise NotEnoughArguments("%s" % fln())
         self.stack[-1], self.stack[-2] = self.stack[-2], self.stack[-1]
 
-    def size(self):
+    def __len__(self):
         return len(self.stack)
 
     def push(self, x):
@@ -125,11 +125,16 @@ class Stack(object):
         else:
             raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to pop)")
 
-    def roll(self):
+    def roll(self, end):
         if self.stack:
             if len(self.stack) == 1:
                 return
-            self.stack = [self.stack.pop(-1)] + self.stack
+            if end == 0:
+                head = self.stack.pop(end)
+                self.stack += [head]
+            else:
+                tail = self.stack.pop(end)
+                self.stack = [tail] + self.stack
         else:
             raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to roll)")
 
@@ -159,15 +164,15 @@ class Stack(object):
         items.  Note:  we make a copy of the stack so we can't possibly
         mess it up.
         '''
-        s, fmt = self.stack[:], "%2d: %s"
+        s = self.stack[:]
         if not size or size > len(s): size = max(1, len(s))
         s.reverse()
         s = s[:size]
         s.reverse()
-        size -= 1
+        fmt = "%%(index) %dd: %%(value)s" % (2+int(log10(max(len(s),1))))
         m = []
         for i in xrange(len(s)):
-            m.append(fmt % (size - i, func(s[i])))
+            m.append(fmt % { 'index': size - i, 'value': func(s[i])})
         s = '\n'.join(m)
         # Special treatment for the first four registers:  name them x, y,
         # z, t (as is done for HP calculators).
@@ -201,8 +206,11 @@ if __name__ == "__main__":
         e[0] = 1  # Tests __setitem__
         e.swap()
         assert e[0] == 2 and e[1] == 1 and e[2] == 3
-        e.roll()
+        e.roll(-1)
         assert e[0] == 1 and e[1] == 3 and e[2] == 2
+        e.roll(0)
+        assert e[0] == 2 and e[1] == 1 and e[2] == 3
+        e.roll(-1)
         e.pop()
         assert e[0] == 3 and e[1] == 2 and e.size() == 2
         x = e.pop()
