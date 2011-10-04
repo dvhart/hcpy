@@ -118,7 +118,11 @@ class Calculator(object):
     VECTOR_CARTESIAN = 0
     VECTOR_POLAR = 1
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        if options.default_config:
+            self.display.msg("Using default configuration only")
+        if options.version:
+            self.display.msg("hcpy version 6 (17 Mar 2009)")
         self.stack = Stack()
         self.stack_index = True
         self.constants = {}
@@ -2838,50 +2842,77 @@ class Calculator(object):
         return new_commands
 
     def GreaterThanEqual(self, x, y):
-        'If x >= y, return True; otherwise, return False.'
+        """
+    Usage: y x >=
+
+    If x >= y, return True; otherwise, return False.
+        """
         result = (x >= y)
         if not result and self.testing: exit(1)
         return result
 
     def GreaterThan(self, x, y):
-        'If x > y, return True; otherwise, return False.'
+        """
+    Usage: y x >
+
+    If x > y, return True; otherwise, return False.
+        """
         result = (x > y)
         if not result and self.testing: exit(1)
         return result
 
     def LessThanEqual(self, x, y):
-        'If x <= y, return True; otherwise, return False.'
+        """
+    Usage: y x <=
+
+    If x <= y, return True; otherwise, return False.
+        """
         result = (x <= y)
         if not result and self.testing: exit(1)
         return result
 
     def LessThan(self, x, y):
-        'If x < y, return True; otherwise, return False.'
+        """
+    Usage: y x <
+
+    If x < y, return True; otherwise, return False.
+        """
         result = (x < y)
         if not result and self.testing: exit(1)
         return result
 
     def Equal(self, x, y):
-        'If x and y are equal, return True; otherwise, return False.'
+        """
+    Usage: y x =
+
+    If x and y are equal, return True; otherwise, return False.
+        """
         result = (x == y)
         if not result and self.testing:
             exit(1)
         return result
 
     def NotEqual(self, x, y):
-        'If x and y are not equal, return True; otherwise, return False.'
+        """
+    Usage: y x !=
+
+    If x and y are not equal, return True; otherwise, return False.
+        """
         result = (x != y)
         if not result and self.testing:
             exit(1)
         return result
 
     def DisplayEqual(self, x, y):
-        '''If x and y are equal, return True; otherwise, return False.
-        IMPORTANT:  the test of equality is whether the string
-        representations in the current display mode match.  If they do,
-        the numbers are equal.  If testing is True, then if the two
-        numbers compare false, we exit with a status of 1.
-        '''
+        """
+    Usage: y x =
+
+    If x and y are equal, return True; otherwise, return False.
+    IMPORTANT:  the test of equality is whether the string
+    representations in the current display mode match.  If they do,
+    the numbers are equal.  If testing is True, then if the two
+    numbers compare false, we exit with a status of 1.
+        """
         sx, sy = self.Format(x), self.Format(y)
         result = (sx == sy)
         if not result and self.testing:
@@ -3081,32 +3112,6 @@ class Calculator(object):
                 pass
             return status_ok
 
-    def GetLineOfInput(self, stream=None):
-        #
-        if stream:
-            s = stream.readline()
-        elif self.process_stdin:
-            s = sys.stdin.readline()
-        else:
-            s = raw_input(self.cfg["prompt"])
-        # Log the line received
-        if s and s[-1] == nl:
-            self.display.log('--> "%s"' % s, suppress_nl=True)
-        else:
-            self.display.log('--> "%s"' % s)
-        if s == "":
-            s = self.eof
-            self.stdin_finished = True
-        else:
-            s = strip(s)
-        pos = s.find("#")  # Delete comments
-        if pos != -1:
-            s = s[:pos]
-            if pos == 0:
-                # This line was nothing but a comment
-                return self.comment_line
-        return s
-
     def cleanup(self):
         readline.write_history_file(os.path.expanduser('~')+'/.pycalc/history')
 
@@ -3137,27 +3142,46 @@ class Calculator(object):
     def peek(self):
         return self.stack[len(self.stack)-1]
 
-    def read_line(self):
-        mode = ''
-        angle = ''
-        if self.vector_mode == Calculator.VECTOR_CARTESIAN:
-            mode = 'cart'
-        elif self.vector_mode == Calculator.VECTOR_POLAR:
-            mode = 'polar'
-        if self.angle_mode == Calculator.ANGLE_DEGREES:
-            angle = 'deg'
-        elif self.angle_mode == Calculator.ANGLE_RADIANS:
-            angle = 'rad'
-        prompt = "%s|%s|pycalc> " % (mode, angle)
-        try:
-            line = raw_input(prompt)
-        except KeyboardInterrupt:
-            print
-            sys.exit()
+    def GetLineOfInput(self, stream=None):
+        #
+        if stream:
+            s = stream.readline()
+        elif self.process_stdin:
+            s = sys.stdin.readline()
+        else:
+            s = raw_input(self.cfg["prompt"])
+        # Log the line received
+        if s and s[-1] == nl:
+            self.display.log('--> "%s"' % s, suppress_nl=True)
+        else:
+            self.display.log('--> "%s"' % s)
+        if s == "":
+            s = self.eof
+            self.stdin_finished = True
+        else:
+            s = strip(s)
+        pos = s.find("#")  # Delete comments
+        if pos != -1:
+            s = s[:pos]
+            if pos == 0:
+                # This line was nothing but a comment
+                return self.comment_line
+        return s
+
+    def read_line(self, stream=None):
+        if stream:
+            s = stream.readline()
+        elif self.process_stdin:
+            s = sys.stdin.readline()
+        else:
+            try:
+                line = raw_input(self.cfg["prompt"])
+            except KeyboardInterrupt:
+                print
+                sys.exit()
         # it looks like readline automatically adds stuff to history
         #readline.add_history(line)
         return line
-        return self.chomp(line)
 
     def chomp(self, line):
         return self.chomppost.sub("", self.chomppre.sub("", line))
@@ -3332,33 +3356,24 @@ def ParseCommandLine():
     usage = "usage: %prog [options]"
     descr = "Command line RPN calculator"
     parser = OptionParser(usage, description=descr)
-    c,d,s,t,v = ("Check that commands have help info",
-                 "Use default configuration in hc.py file only",
-                 "Take input from stdin",
-                 "Exit with status 1 if = or == are False",
-                 "self.Display program version")
-    parser.add_option("-c", "--run_checks", action="store_true", help=c)
-    parser.add_option("-d", "--default_config", action="store_true", help=d)
-    parser.add_option("-s", "--read_stdin", action="store_true", help=s)
-    parser.add_option("-t", "--testing_mode", action="store_true", help=t)
+    c,d,s,r,t,v = ("Check that commands have help info",
+                   "Use default configuration in hc.py file only",
+                   "Take input from stdin",
+                   "Read input from file",
+                   "Exit with status 1 if = or == are False",
+                   "Display program version")
+    parser.add_option("-c", "--run-checks", action="store_true", help=c)
+    parser.add_option("-d", "--default-config", action="store_true", help=d)
+    parser.add_option("-s", "--read-stdin", action="store_true", help=s)
+    parser.add_option("-r", "--read-file", metavar="file", action="store_true", help=r)
+    parser.add_option("-t", "--testing-mode", action="store_true", help=t)
     parser.add_option("-v", "--version", action="store_true", help=v)
-    (options, args) = parser.parse_args(args=None, values=None)
-    if options.run_checks:
-        self.run_checks = True
-    if options.default_config:
-        self.use_default_config_only = True
-        self.display.msg("Using default configuration only")
-    if options.read_stdin:
-        self.process_stdin = True
-    if options.testing_mode:
-        self.testing = True
-    if options.version:
-        self.display.msg("hcpy version 6 (17 Mar 2009)")
-    return args
+    return parser.parse_args(args=None, values=None)
 
 def main(argv):
     if len(argv) > 1:
-        args = ParseCommandLine()
+        opts, args = ParseCommandLine()
+        print opts, args
     finished = False
     status = None
     calculator = Calculator()
