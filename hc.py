@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #----------------------------------
 # Python library stuff
-import sys, getopt
+import sys, getopt, time
 import readline
 from string import strip
 from os import remove, system, urandom, environ
@@ -117,7 +117,7 @@ class Calculator(object):
     ANGLE_DEGREES = 1
     VECTOR_CARTESIAN = 0
     VECTOR_POLAR = 1
-    
+
     def __init__(self):
         self.stack = Stack()
         self.stack_index = True
@@ -168,7 +168,7 @@ class Calculator(object):
             ">"        : [self.GreaterThan, 2],      # True if x > y
             ">="       : [self.GreaterThanEqual, 2], # True if x >= y
             "="        : [self.DisplayEqual, 2],  # True if displayed strings of x & y are equal
-            "2V"       : [self.ToV, 2],   # Convert to [y,x] interval number
+            "iv"       : [self.ToIV, 2],   # Convert to [y,x] interval number
 
             # Unary functions
             "I"        : [self.Cast_i, 1],  # Convert to integer
@@ -197,6 +197,16 @@ class Calculator(object):
             "!"        : [self.Factorial, 1],  # factorial
             "floor"    : [self.floor, 1], # Largest integer <= x
             "ceil"     : [self.ceil, 1],  # Smallest integer >= x
+            "abs"      : [self.abs, 1],   # Absolute value of x
+            "arg"      : [self.arg, 1],# {"post" : Conv2Deg}],  # Argument of complex
+            "ln"       : [self.ln, 1],    # Natural logarithm
+            "ln2"      : [self.Ln2, 1],     # Base 2 logarithm
+            "log"      : [self.log10, 1], # Base 10 logarithm
+            "exp"      : [self.exp, 1], # Exponential function
+
+            # 0-nary functions
+            "now"      : [self.now, 0],  # returns the current date/time
+            "rand"     : [self.rand, 0],  # Uniform random number
 
             # trig functions
             "sin"      : [self.sin, 1],#  {"pre"  : self.Conf2Rad}],
@@ -226,21 +236,16 @@ class Calculator(object):
             "2deg"     : [self.ToDegrees, 1],  # Convert x to radians
             "2rad"     : [self.ToRadians, 1],  # Convert x to degrees
 
-            "ln"       : [self.ln, 1],    # Natural logarithm
-            "ln2"      : [self.Ln2, 1],     # Base 2 logarithm
-            "log"      : [self.log10, 1], # Base 10 logarithm
-            "exp"      : [self.exp, 1], # Exponential function
-            "abs"      : [self.abs, 1],   # Absolute value of x
-            "arg"      : [self.arg, 1],# {"post" : Conv2Deg}],  # Argument of complex
-
             # Stack functions
             "clr"      : [self.ClearStack, 0],
+            "clear"    : [self.Reset, 0], # Reset the calculator state
             "stack"    : [self.SetStackDisplay, 1],
             "lastx"    : [self.lastx, 0], # Recall last x used
-            "mixed"    : [self.mixed, 1], # Toggle mixed fraction display
             "swap"     : [self.swap, 0],   # swap x and y
             "roll"     : [self.roll, 0],  # Roll stack
             "rolld"    : [self.rolld, 0],  # Roll stack down
+            "over"     : [self.over, 0],  # push y onto the stack at the top
+            "pick"     : [self.pick, 1],  # pick stack[x] off the stack and push it at the top
             "drop"     : [self.drop, 1],   # Pop x off the stack
             "drop2"    : [self.drop2, 2],   # Pop x and y off the stack
             "dropn"    : [self.dropn, 'x'],   # Pop x items off the stack
@@ -252,6 +257,13 @@ class Calculator(object):
             # constants
             "pi"       : [self.Pi, 0],
             "e"        : [self.E, 0],
+            "i"        : [self.imaginary, 0],
+            "j"        : [self.imaginary, 0],
+
+            # network functions
+            # same net - 3 args -- 2 ips and a netmask
+            # broadcast - 2 args - ip and a netmask
+            # net match
 
             # Other stuff
             "?"        : [self.help, 0],  # Help command
@@ -263,20 +275,18 @@ class Calculator(object):
             "es"       : [self.EditStack, 0],
             "er"       : [self.EditRegisters, 0],
             "prr"      : [self.PrintRegisters, 0],
-            "2hr"      : [self.hr, 1],    # Convert to decimal hour format
-            "2hms"     : [self.hms, 1],   # Convert to hour/minute/second format
-            "rand"     : [self.rand, 0],  # Uniform random number
             "cfg"      : [self.ShowConfig, 0], # Show configuration
             "mod"      : [self.Modulus, 1], # All answers displayed with this modulus
-            "rat"      : [self.Rationals, 1], # Toggle whether to use rationals
-            "down"     : [self.ToggleDowncasting, 1],
             "clrg"     : [self.ClearRegisters, 0],
            #"phi"      : [self.Phi, 0],   # Golden ratio
             ">>."      : [self.display.logoff, 0],  # Turn off logging
-            "sx"       : [self.C_sX, 1],  # Unsigned n-bit integer mode
-            "ux"       : [self.C_uX, 1],  # Signed n-bit integer mode
 
             # Display functions
+            "mixed"    : [self.mixed, 1], # Toggle mixed fraction display
+            "rat"      : [self.Rationals, 1], # Toggle whether to use rationals
+            "down"     : [self.ToggleDowncasting, 1],
+            "2hr"      : [self.hr, 1],    # Convert to decimal hour format
+            "2hms"     : [self.hms, 1],   # Convert to hour/minute/second format
             "on"       : [self.display.on, 0],  # Turn display of answers on
             "off"      : [self.display.off, 0],  # Turn display of answers off
             "prec"     : [self.Prec, 1],  # Set calculation precision
@@ -288,22 +298,26 @@ class Calculator(object):
             "sci"      : [self.sci, 0],  # Scientific notation display
             "eng"      : [self.eng, 0],  # Engineering display
             "engsi"    : [self.engsi, 0],  # Engineering display with SI prefix
+            "raw"      : [self.raw, 0],  # raw fp mode
             "brief"    : [self.brief, 1],  # Fit number on one line
-            "polar"    : [self.Polar, 0],  # Complex number display
-            "rect"     : [self.Rectangular, 0],  # Complex number display
-            "dec"      : [self.dec, 0],  # Decimal display for integers
-            "hex"      : [self.hex, 0],  # Hex display for integers
-            "oct"      : [self.oct, 0],  # Octal for integers
-            "bin"      : [self.bin, 0],  # Binary display for integers
-            "ip"       : [self.ip, 0],  # ip address display
             "iva"      : [self.iva, 0],  # Interval display
             "ivb"      : [self.ivb, 0],  # Interval display
             "ivc"      : [self.ivc, 0],  # Interval display
             "show"     : [self.Show, 0],  # Show full precision of x register
             "debug"    : [self.Debug, 1], # Toggle the debug variable
+            # angle modes
+            "polar"    : [self.Polar, 0],  # Complex number display
+            "rect"     : [self.Rectangular, 0],  # Complex number display
+            # integer modes
+            "sx"       : [self.C_sX, 1],  # Unsigned n-bit integer mode
+            "ux"       : [self.C_uX, 1],  # Signed n-bit integer mode
+            "dec"      : [self.dec, 0],  # Decimal display for integers
+            "hex"      : [self.hex, 0],  # Hex display for integers
+            "oct"      : [self.oct, 0],  # Octal for integers
+            "bin"      : [self.bin, 0],  # Binary display for integers
+            "IP"       : [self.IP, 0],  # ip address display
             # The none display mode is primarily intended for debugging.  It
             # displays makes the mpmath numbers display in their native formats.
-            "clear"    : [self.Reset, 0], # Reset the calculator state
 
             # Some other math functions
             "gamma"    : [self.gamma, 1],
@@ -337,13 +351,13 @@ class Calculator(object):
         simple_statement := cint / number / delimited_func / constant / operator / ((constant/number), ows, operator)
         cint := [us],[0-9]+
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
-        number := scaler_number / compound_number / [ij]
+        number := scaler_number / compound_number
         compound_number := vector / array
         scaler_number := complex_number / imag_number / real_number
         complex_number := (real_number_ns,('+'/'-'),imag_number) / ('(',real_number,',',real_number,')') / ('(', real_number, (',', ows)?, '<', real_number, ')')
         imag_number := real_number_ns,[ij]
         array := '[', vector_list, ']'
-        vector_list := (vector, ',', vector_list) / vector 
+        vector_list := (vector, ',', vector_list) / vector
         vector := '[', real_number_list, ']'
         real_number_list := real_number, (','?, real_number)*
         real_number := ows, real_number_ns, ows
@@ -381,7 +395,6 @@ class Calculator(object):
                     continue
                 defined_functions += " / '%s'" %f
             grammar += defined_functions
-            print grammar
             self.parser = generator.buildParser(grammar).parserbyname('calculator_grammar')
         except:
             print "Something bad happened in init().  This may not work at all..."
@@ -389,7 +402,8 @@ class Calculator(object):
             traceback.print_exception(type, value, tb, None, sys.stdout)
         self.chomppre = regex.compile(r"^\s*")
         self.chomppost = regex.compile(r"\s*$")
-    
+        self.check_help()
+
     #---------------------------------------------------------------------------
     #---------------------------------------------------------------------------
     # Global variables
@@ -570,6 +584,15 @@ class Calculator(object):
     #---------------------------------------------------------------------------
     # Utility functions
 
+    def check_help(self):
+        method = regex.compile(r"<bound method [_a-z][_a-z0-9]*[.]([^ ]*) of .*", regex.I)
+        undocumented = []
+        for f in self.commands_dict.keys():
+            if self.commands_dict[f][0].__doc__ is None:
+                name = method.match(self.commands_dict[f][0].__str__()).groups()[0]
+                undocumented.append(name)
+        print "undocumented functions: %s" % ' '.join(undocumented)
+
     def use_modular_arithmetic(self, x, y):
         return (isint(x) and isint(y) and abs(self.cfg["modulus"]) > 1)
 
@@ -626,6 +649,11 @@ class Calculator(object):
     # Binary functions
 
     def add(self, x, y):
+        """
+    Usage: y x +
+
+    Return the sum of the bottom two items on the stack (y + x)
+        """
         if self.use_modular_arithmetic(x, y):
             return (x + y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
@@ -635,6 +663,11 @@ class Calculator(object):
             return y + x
 
     def subtract(self, x, y):
+        """
+    Usage: y x -
+
+    Return the difference of the bottom two items on the stack (y - x)
+        """
         if self.use_modular_arithmetic(x, y):
             return (x - y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
@@ -644,6 +677,11 @@ class Calculator(object):
             return -y + x
 
     def multiply(self, x, y):
+        """
+    Usage: y x *
+
+    Return the product of the bottom two items on the stack (y * x)
+        """
         if self.use_modular_arithmetic(x, y):
             return (x*y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
@@ -653,6 +691,11 @@ class Calculator(object):
             return y*x
 
     def divide(self, x, y):
+        """
+    Usage: y x /
+
+    Return the quotient of the bottom two items on the stack (y / x)
+        """
         if self.use_modular_arithmetic(x, y):
             return (x//y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
@@ -681,6 +724,11 @@ class Calculator(object):
             return (1/y)*x
 
     def Mod(self, n, d):
+        """
+    Usage: y x %
+
+    Return the modulus of the bottom two items on the stack (y mod x)
+        """
         self.TypeCheck(n, d)
         if isint(n) and isint(d):
             return Zn(n) % Zn(d)
@@ -694,6 +742,11 @@ class Calculator(object):
         return result
 
     def integer_divide(self, n, d):
+        """
+    Usage: y x div
+
+    Return the integer division quotient of the bottom two items on the stack (y // x)
+        """
         if self.use_modular_arithmetic(n, d):
             return (Zn(n)//Zn(d)) % self.cfg["modulus"]
         self.TypeCheck(n, d)
@@ -704,6 +757,11 @@ class Calculator(object):
         return int(m.floor(n/d))
 
     def bit_and(self, x, y):
+        """
+    Usage: y x &
+
+    Return the bitwise AND of the bottom two items on the stack (y & x)
+        """
         self.TypeCheck(x, y)
         if isint(x) and isint(y):
             return Zn(x) & Zn(y)
@@ -712,6 +770,11 @@ class Calculator(object):
         return x & y
 
     def bit_or(self, x, y):
+        """
+    Usage: y x |
+
+    Return the bitwise OR of the bottom two items on the stack (y | x)
+        """
         self.TypeCheck(x, y)
         if isint(x) and isint(y):
             return Zn(x) | Zn(y)
@@ -720,6 +783,11 @@ class Calculator(object):
         return x | y
 
     def bit_xor(self, x, y):
+        """
+    Usage: y x xor
+
+    Return the bitwise XOR of the bottom two items on the stack (y XOR x)
+        """
         self.TypeCheck(x, y)
         if isint(x) and isint(y):
             return Zn(x) ^ Zn(y)
@@ -728,6 +796,11 @@ class Calculator(object):
         return x ^ y
 
     def bit_leftshift(self, x, y):
+        """
+    Usage: y x <<
+
+    Return the bitwise left shift of the bottom two items on the stack (y << x)
+        """
         self.TypeCheck(x, y)
         if isint(x) and isint(y):
             return Zn(x) << Zn(y)
@@ -736,6 +809,11 @@ class Calculator(object):
         return x << y
 
     def bit_rightshift(self, x, y):
+        """
+    Usage: y x >>
+
+    Return the bitwise right shift of the bottom two items on the stack (y >> x)
+        """
         self.TypeCheck(x, y)
         if isint(x) and isint(y):
             return Zn(x) >> Zn(y)
@@ -744,6 +822,11 @@ class Calculator(object):
         return x >> y
 
     def percent_change(self, x, y):
+        """
+    Usage: y x %ch
+
+    Return the percent change between the bottom two items on the stack
+        """
         x = Convert(x, MPF)
         y = Convert(y, MPF)
         if x == 0:
@@ -751,6 +834,11 @@ class Calculator(object):
         return 100*(y - x)/x
 
     def combination(self, x, y):
+        """
+    Usage: y x comb
+
+    Return the statistical combination of the bottom two items on the stack
+        """
         if (not self.cfg["coerce"]) and \
            (not isint(x)) and (not isint(y)):
             raise ValueError(self.argument_types % fln())
@@ -759,6 +847,11 @@ class Calculator(object):
         return int(self.permutation(x, y)//self.Factorial(y))
 
     def permutation(self, x, y):
+        """
+    Usage: y x perm
+
+    Return the statistical permutation of the bottom two items on the stack
+        """
         if (not self.cfg["coerce"]) and \
            (not isint(x)) and (not isint(y)):
             raise ValueError(self.argument_types % fln())
@@ -767,13 +860,13 @@ class Calculator(object):
         return int(self.Factorial(x)//self.Factorial(x - y))
 
     def power(self, x, y):
+        """
+    Usage: y x ^
+
+    Return the value of the pow() function applied to the bottom two items on the stack (y^x)
+        """
         return pow(x, y)
 
-    def atan2(self, x, y):
-        return m.atan2(x, y)
-
-    def hypot(self, x, y):
-        return m.hypot(x, y)
     #---------------------------------------------------------------------------
     # Unary functions
 
@@ -824,8 +917,12 @@ class Calculator(object):
             msg = "%sapart requires rational, complex, or interval number"
             raise ValueError(msg % fln())
 
-    def ToV(self, y, x):
-        'Convert to interval number [y,x]'
+    def ToIV(self, y, x):
+        """
+    Usage: y x iv
+
+    Convert to interval number [y,x]
+        """
         if y > x:
             msg = "%sy register must be <= x register"
             raise ValueError(msg % fln())
@@ -834,22 +931,42 @@ class Calculator(object):
         return mpi(y, x)
 
     def Chop(self, x):
+        """
+    Usage: x chop
+
+    Returns the the value of x as displayed
+        """
         n = Number()
         return n(self.Format(x).replace(" ", ""))
 
     def RealPart(self, x):
+        """
+    Usage: x rp
+
+    Returns the real part of complex number x
+        """
         if isinstance(x, m.mpc):
             return x.real
         else:
             return x
 
     def ImagPart(self, x):
+        """
+    Usage: x ip
+
+    Returns the imaginary part of complex number x
+        """
         if isinstance(x, m.mpc):
             return x.imag
         else:
             return x
 
     def conj(self, x):
+        """
+    Usage: x conj
+
+    Returns the complex conjugate of complex number x
+        """
         if isinstance(x, m.mpc):
             n = Convert(x, MPC)
             return m.mpc(n.real, -n.imag)
@@ -857,18 +974,39 @@ class Calculator(object):
             return x
 
     def sqrt(self, x):
+        """
+    Usage: x sqrt
+
+    Returns the square root of x
+        """
         return m.sqrt(x)
 
     def square(self, x):
+        """
+    Usage: x sqr
+
+    Returns the square of x
+        """
         return x*x
 
     def mid(self, x):
+        """
+    Usage: x mid
+
+    Returns the midpoint for interval number x
+        """
         if isinstance(x, m.mpi):
             return x.mid
         else:
             raise ValueError("%sNeed an interval number for mid" % fln())
 
     def Factorial(self, x):
+        """
+    Usage: x !
+
+    Returns the factorial of x.  This returns the exact factorial up to
+    cfg['factorial_limit'] and a floating point approximation beyond that.
+        """
         def ExactIntegerFactorial(x):
             if x in self.factorial_cache:
                 return self.factorial_cache[x]
@@ -888,6 +1026,11 @@ class Calculator(object):
         return m.factorial(x)
 
     def Sum(self, *args):
+        """
+    Usage: x sum
+
+    Returns the sum of the bottom x items on the stack
+    """
         s = 0
         try:
             for x in args:
@@ -898,10 +1041,36 @@ class Calculator(object):
         return s
 
     def floor(self, x):
+        """
+    Usage: x floor
+
+    Returns the next integer less than or equal to x
+    """
         return m.floor(x)
 
     def ceil(self, x):
+        """
+    Usage: x ceil
+
+    Returns the next integer greater than or equal to x
+    """
         return m.ceil(x)
+
+    def atan2(self, x, y):
+        """
+    Usage: y x atan2
+
+    Returns the arc tangent of the angle with legs y and x (gets angle sign correct)
+        """
+        return m.atan2(x, y)
+
+    def hypot(self, x, y):
+        """
+    Usage: y x hypot
+
+    Returns the hypotenuse of the right triangle with legs x and y
+        """
+        return m.hypot(x, y)
 
     def sin(self, x):
         """
@@ -1215,11 +1384,22 @@ class Calculator(object):
             minutes = 0
         return hours + minutes/mpf(100) + seconds/mpf(10000)
 
+    def now(self):
+        """
+    Usage: now
+
+    Return the current date/time as a float for use with Julian maths
+        """
+        return time.time()
+
     def rand(self):
-        '''Return a uniformly-distributed random number in [0, 1).  We use
-        the os.urandom function to return a group of random bytes, then convert
-        the bytes to a binary fraction expressed in decimal.
-        '''
+        """
+    Usage: rand
+
+    Return a uniformly-distributed random number in [0, 1).  We use
+    the os.urandom function to return a group of random bytes, then convert
+    the bytes to a binary fraction expressed in decimal.
+        """
         numbytes = ceil(mp.prec/mpf(8)) + 1
         bytes = urandom(numbytes)
         number = self.sum([ord(b)*mpf(256)**(-(i+1)) for i, b in enumerate(list(bytes))])
@@ -1302,9 +1482,8 @@ class Calculator(object):
     def E(self):
         return m.mpf(m.mp.e)
 
-    def lastx(self):
-        assert self.stack.lastx != None, "Bug:  stack.lastx is None"
-        return self.stack.lastx
+    def imaginary(self):
+        return m.mpc(0,1)
 
     def mixed(self, x):
         if x != 0:
@@ -1314,40 +1493,152 @@ class Calculator(object):
             self.cfg["mixed_fractions"] = False
             Rational.mixed = False
 
+    ############################################################################
+    # Stack callback functions
+    ############################################################################
+    def ClearStack(self):
+        """
+    Usage: clear
+
+    Clear the stack, but keep register and other settings
+        """
+        self.stack.clear_stack()
+
+    def Reset(self):
+        """
+    Usage: reset
+
+    Reset the calculator to initial settings, clear stack, reset registers, etc.
+        """
+        self.ClearRegisters()
+        self.ClearStack()
+        self.cfg.clear()
+        self.cfg.update(self.cfg_default)
+        self.ConfigChanged()
+
+    def SetStackDisplay(self, x):
+        """
+    Usage: n stack
+
+    Set the display size of the stack to n items.  Items beyond n are still
+    saved as part of the stack, but are not displayed on a refresh.
+        """
+        msg = "Stack display size be an integer >= 0"
+        if int(x) == x:
+            if x >= 0:
+                self.cfg["stack_display"] = int(x)
+                return None
+            else:
+                self.display.msg(msg)
+                return x
+        else:
+            self.display.msg(msg)
+            return x
+
+    def lastx(self):
+        """
+    Usage: lastx
+
+    Push the saved last x back onto the stack
+        """
+        assert self.stack.lastx != None, "Bug:  stack.lastx is None"
+        return self.stack.lastx
+
+
     def swap(self):
+        """
+    Usage: swap
+
+    Swap the bottom two stack items
+        """
         try:
             self.stack.swap()
         except:
             self.display.msg("%sStack is not large enough" % fln())
 
     def roll(self):
-        print "roll"
+        """
+    Usage: roll
+
+    Roll the stack up (1 => 2, 2 => 3, n => 1)
+        """
         self.stack.roll(0)
 
     def rolld(self):
-        print "rolld"
+        """
+    Usage: rolld
+
+    Roll the stack down (1 => n, 2 => 1, n => n -  1)
+        """
         self.stack.roll(-1)
 
+    def over(self):
+        """
+    Usage: over
+
+    Pushes the second to bottom item onto the stack as the bottom
+        """
+        return self.stack[1]
+
+    def pick(self, x):
+        """
+    Usage: n pick
+
+    Pushes the nth to bottom item onto the stack as the bottom
+        """
+        x = int(x)
+        return self.stack[x-1]
+
     def drop(self, x):
+        """
+    Usage: drop
+
+    Drops the bottom item off the stack
+        """
         return None
 
     def drop2(self, y, x):
+        """
+    Usage: drop2
+
+    Drops the bottom two items off the stack
+        """
         return None
 
     def dropn(self, *args):
+        """
+    Usage: n dropn
+
+    Drops the bottom n items off the stack
+        """
         return None
 
     def dup(self, x):
+        """
+    Usage: dup
+
+    Duplicates the bottom item on the stack
+        """
         self.stack.push(x)
         return x
 
     def dup2(self, y, x):
+        """
+    Usage: dup2
+
+    Duplicates the bottom two items on the stack
+        """
         self.stack.push(y)
         self.stack.push(x)
         self.stack.push(y)
         return x
 
     def dupn(self, *args):
+        """
+    Usage: n dupn
+
+    Duplicates the bottom n items on the stack
+        """
         n = len(args)
         for a in range(1, n+1):
             self.stack.push(args[-a])
@@ -1356,7 +1647,16 @@ class Calculator(object):
         return None
 
     def depth(self):
+        """
+    Usage: depth
+
+    Pushes the stack depth onto the bottom of the stack
+        """
         return len(self.stack)
+
+    ############################################################################
+    # End of callback functions
+    ############################################################################
 
     def Cast(self, x, newtype, use_prec=False):
         '''If use_prec == True, use mp.dps.
@@ -1396,6 +1696,11 @@ class Calculator(object):
         return self.Cast(x, MPI)
 
     def Prec(self, x):
+        """
+    Usage: x prec
+
+    Set floating point precision to x digits
+        """
         if isint(x) and x > 0:
             mp.dps = int(x)
             self.cfg["prec"] = int(x)
@@ -1406,9 +1711,13 @@ class Calculator(object):
             return None
         else:
             self.display.msg("You must supply an integer > 0")
-            return x
 
     def digits(self, x):
+        """
+    Usage: x digits
+
+    Set floating point display to x digits
+        """
         if int(x) == x:
             if x >= 0:
                 d = min(int(x), mp.dps)
@@ -1417,28 +1726,15 @@ class Calculator(object):
                 return None
             else:
                 self.display.msg("Use an integer >= 0")
-                return x
         else:
             self.display.msg("You must supply an integer >= 0")
-            return x
-
-    def SetStackDisplay(self, x):
-        msg = "Stack display size be an integer >= 0"
-        if int(x) == x:
-            if x >= 0:
-                self.cfg["stack_display"] = int(x)
-                return None
-            else:
-                self.display.msg(msg)
-                return x
-        else:
-            self.display.msg(msg)
-            return x
 
     def Round(self, y, x):
-        '''Round y to the nearest x.  Algorithm from PC Magazine, 31Oct1988,
-        pg 435.
-        '''
+        """
+    Usage: y x round
+
+    Round y to the nearest x.  Algorithm from PC Magazine, 31Oct1988, pg 435.
+        """
         y = Convert(y, MPF)
         x = Convert(x, MPF)
         sgn = 1
@@ -1478,33 +1774,19 @@ class Calculator(object):
 
     #---------------------------------------------------------------------------
 
-    def Dummy(self):
-        raise Exception("%sDummy():  shouldn't have executed this function" % fln())
-
-    def NotImpl(self):
-        print "Not implemented yet"
-
-    def NotImplx(self, x):
-        print "Not implemented yet"
-        return x
-
     def Debug(self, x):
         if x != 0:
             toggle_debug(True)
         else:
             toggle_debug(False)
 
-    def Reset(self):
-        self.ClearRegisters()
-        self.ClearStack()
-        self.cfg.clear()
-        self.cfg.update(self.cfg_default)
-        self.ConfigChanged()
-
     def Show(self):
-        '''Show the full precision of x.
-        '''
-        def showx(self, x, prefix=""):
+        """
+    Usage: show
+
+    Show the full precision of the bottom value on the stack
+        """
+        def showx(x, prefix=""):
             if mp.dps < 2:
                 return
             sign, mant, exponent = to_digits_exp(x._mpf_, mp.dps)
@@ -1513,7 +1795,7 @@ class Calculator(object):
                 s = "-" + s
             self.display.msg(" " + prefix + s)
         from mpmath.libmp.libmpf import to_digits_exp
-        x = stack[0]
+        x = self.stack[0]
         if isinstance(x, m.mpf):
             showx(x)
         elif isinstance(x, m.mpc):
@@ -1524,13 +1806,13 @@ class Calculator(object):
             self.display.msg(" x is an interval number")
             showx(x.a, "  x.a:  ")
             showx(x.b, "  x.b:  ")
-        # Return False to avoid displaying the stack
-        return False
-
-    def ClearStack(self):
-        self.stack.clear_stack()
 
     def comma(self, x):
+        """
+    Usage: x comma
+
+    If x, use commas to decorate displayed values
+        """
         if x != 0:
             self.cfg["fp_comma_decorate"] = True
         else:
@@ -1538,75 +1820,180 @@ class Calculator(object):
         mpFormat.comma_decorate = self.cfg["fp_comma_decorate"]
 
     def width(self, x):
+        """
+    Usage: x width
+
+    Set display width to x (x must be > 20)
+        """
         if isint(x) and x > 20:
             self.cfg["line_width"] = int(x)
         else:
             self.display.msg("width command requires an integer > 20")
 
     def Rectangular(self):
+        """
+    Usage: rec
+
+    Set rectangular mode for display of complex numbers and vectors
+        """
         self.cfg["imaginary_mode"] = "rect"
 
     def Polar(self):
+        """
+    Usage: polar
+
+    Set polar mode for display of complex numbers and vectors
+        """
         self.cfg["imaginary_mode"] = "polar"
 
     def fix(self):
-            self.cfg["fp_format"] = "fix"
+        """
+    Usage: fix
+
+    Set fixed-point mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "fix"
 
     def sig(self):
-            self.cfg["fp_format"] = "sig"
+        """
+    Usage: sig
+
+    Set significant digits mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "sig"
 
     def sci(self):
-            self.cfg["fp_format"] = "sci"
+        """
+    Usage: sci
+
+    Set scientific mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "sci"
 
     def eng(self):
-            self.cfg["fp_format"] = "eng"
+        """
+    Usage: eng
+
+    Set engineering mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "eng"
 
     def engsi(self):
-            self.cfg["fp_format"] = "engsi"
+        """
+    Usage: eng
 
-    def none(self):
-            self.cfg["fp_format"] = "none"
+    Set engineering mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "engsi"
+
+    def raw(self):
+        """
+    Usage: raw
+
+    Set raw mode for display of floating point numbers
+        """
+        self.cfg["fp_format"] = "none"
 
     def dec(self):
-            self.cfg["integer_mode"] = "dec"
+        """
+    Usage: dec
+
+    Set decimal mode for display of integers
+        """
+        self.cfg["integer_mode"] = "dec"
 
     def hex(self):
-            self.cfg["integer_mode"] = "hex"
+        """
+    Usage: hex
+
+    Set hexadecimal mode for display of integers
+        """
+        self.cfg["integer_mode"] = "hex"
 
     def oct(self):
-            self.cfg["integer_mode"] = "oct"
+        """
+    Usage: oct
+
+    Set octal mode for display of integers
+        """
+        self.cfg["integer_mode"] = "oct"
 
     def bin(self):
-            self.cfg["integer_mode"] = "bin"
+        """
+    Usage: bin
 
-    def ip(self):
-            self.cfg["integer_mode"] = "ip"
+    Set binary mode for display of integers
+        """
+        self.cfg["integer_mode"] = "bin"
+
+    def IP(self):
+        """
+    Usage: IP
+
+    Set IP address mode for display of integers
+        """
+        self.cfg["integer_mode"] = "ip"
 
     def iva(self):
-            self.cfg["iv_mode"] = "a"
-            Julian.interval_representation = "a"
+        """
+    Usage: iva
+
+    Set interval mode A for display of intervals
+        """
+        self.cfg["iv_mode"] = "a"
+        Julian.interval_representation = "a"
 
     def ivb(self):
-            self.cfg["iv_mode"] = "b"
-            Julian.interval_representation = "b"
+        """
+    Usage: ivb
+
+    Set interval mode B for display of intervals
+        """
+        self.cfg["iv_mode"] = "b"
+        Julian.interval_representation = "b"
 
     def ivc(self):
-            self.cfg["iv_mode"] = "c"
-            Julian.interval_representation = "c"
+        """
+    Usage: ivc
+
+    Set interval mode C for display of intervals
+        """
+        self.cfg["iv_mode"] = "c"
+        Julian.interval_representation = "c"
 
     def on(self):
-            self.display.on()
-            return status_ok_no_display
+        """
+    Usage: on
+
+    Set display output on
+        """
+        self.display.on()
+        return status_ok_no_display
 
     def off(self):
-            self.display.off()
-            return status_ok_no_display
+        """
+    Usage: off
+
+    Set display output off
+        """
+        self.display.off()
+        return status_ok_no_display
 
     def deg(self):
-            self.cfg["angle_mode"] = "deg"
+        """
+    Usage: deg
+
+    Set angle mode to degrees
+        """
+        self.cfg["angle_mode"] = "deg"
 
     def rad(self):
-            self.cfg["angle_mode"] = "rad"
+        """
+    Usage: rad
+
+    Set angle mode to radians
+        """
+        self.cfg["angle_mode"] = "rad"
 
     def brief(self, x):
         if x != 0:
@@ -1922,7 +2309,7 @@ class Calculator(object):
                     self.display.msg("Warning:  bad imaginary_mode('%s') in configuration" \
                         % mode)
             return s
-        elif isinstance(x, mpi):
+        elif isinstance(x, ctx_iv.ivmpf):
             a = str(x.a)
             b = str(x.b)
             mid = x.mid
@@ -2722,7 +3109,7 @@ class Calculator(object):
 
     def cleanup(self):
         readline.write_history_file(os.path.expanduser('~')+'/.pycalc/history')
-    
+
     def show_stack(self):
         depth = len(self.stack)
         if self.stack_index:
@@ -2734,7 +3121,7 @@ class Calculator(object):
                 v.show(self.cfg["integer_mode"], self.cfg["prec"], self.vector_mode, self.angle_mode)
             }
             depth -= 1
-    
+
     def push(self, val):
         if val is None:
             raise Exception('BAD! val is None at %s'%_functionId())
@@ -2743,13 +3130,13 @@ class Calculator(object):
         except:
             print type(val)
             raise Exception('BAD! at %s'%_functionId())
-    
+
     def pop(self):
         return self.stack.pop()
-    
+
     def peek(self):
         return self.stack[len(self.stack)-1]
-    
+
     def read_line(self):
         mode = ''
         angle = ''
@@ -2771,10 +3158,10 @@ class Calculator(object):
         #readline.add_history(line)
         return line
         return self.chomp(line)
-    
+
     def chomp(self, line):
         return self.chomppost.sub("", self.chomppre.sub("", line))
-    
+
     def token(self):
         # snag the next token from the line
         line = self.read_line()
@@ -2801,7 +3188,7 @@ class Calculator(object):
             if isinstance(val, Zn): val = int(val)
             args.insert(0, val)
         return args
-    
+
     def run(self):
         NGen = Number()
         cints = regex.compile(r"[su][0-9]+")
@@ -2857,7 +3244,7 @@ class Calculator(object):
                 type,value,tb = sys.exc_info()
                 traceback.print_exception(type, value, tb, None, sys.stdout)
         readline.write_history_file()
-    
+
     def help(self, args=None):
         """
     Usage: help [function]
@@ -2915,7 +3302,7 @@ class Calculator(object):
     Displays the license and warranty information
         """
         print license
-    
+
     def todo(self):
         """
     Usage: todo
