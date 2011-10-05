@@ -216,30 +216,30 @@ class Calculator(object):
             "ts"       : [self.unix_ts, 0], # return unix timestamp
 
             # trig functions
-            "sin"      : [self.sin, 1],#  {"pre"  : self.Conv2Rad}],
-            "cos"      : [self.cos, 1],#  {"pre"  : self.Conv2Rad}],
-            "tan"      : [self.tan, 1],#  {"pre"  : self.Conv2Rad}],
-            "asin"     : [self.asin, 1],# {"post" : self.Conv2Deg}],
-            "acos"     : [self.acos, 1],# {"post" : self.Conv2Deg}],
-            "atan"     : [self.atan, 1],# {"post" : self.Conv2Deg}],
-            "sec"      : [self.sec, 1],#  {"pre"  : self.Conv2Rad}],
-            "csc"      : [self.csc, 1],#  {"pre"  : self.Conv2Rad}],
-            "cot"      : [self.cot, 1],#  {"pre"  : self.Conv2Rad}],
-            "asec"     : [self.asec, 1],# {"post" : self.Conv2Deg}],
-            "acsc"     : [self.acsc, 1],# {"post" : self.Conv2Deg}],
-            "acot"     : [self.acot, 1],# {"post" : self.Conv2Deg}],
-            "sinh"     : [self.sinh, 1],
-            "cosh"     : [self.cosh, 1],
-            "tanh"     : [self.tanh, 1],
-            "asinh"    : [self.asinh, 1],
-            "acosh"    : [self.acosh, 1],
-            "atanh"    : [self.atanh, 1],
-            "sech"     : [self.sech, 1],
-            "csch"     : [self.csch, 1],
-            "coth"     : [self.coth, 1],
-            "asech"    : [self.asech, 1],
-            "acsch"    : [self.acsch, 1],
-            "acoth"    : [self.acoth, 1],
+            "sin"      : [self.sin, 1],   # {"pre"  : self.Conv2Rad}],
+            "cos"      : [self.cos, 1],   # {"pre"  : self.Conv2Rad}],
+            "tan"      : [self.tan, 1],   # {"pre"  : self.Conv2Rad}],
+            "asin"     : [self.asin, 1],  # {"post" : self.Conv2Deg}],
+            "acos"     : [self.acos, 1],  # {"post" : self.Conv2Deg}],
+            "atan"     : [self.atan, 1],  # {"post" : self.Conv2Deg}],
+            "sec"      : [self.sec, 1],   # {"pre"  : self.Conv2Rad}],
+            "csc"      : [self.csc, 1],   # {"pre"  : self.Conv2Rad}],
+            "cot"      : [self.cot, 1],   # {"pre"  : self.Conv2Rad}],
+            "asec"     : [self.asec, 1],  # {"post" : self.Conv2Deg}],
+            "acsc"     : [self.acsc, 1],  # {"post" : self.Conv2Deg}],
+            "acot"     : [self.acot, 1],  # {"post" : self.Conv2Deg}],
+            "sinh"     : [self.sinh, 1],  # {"pre"  : self.Conv2Rad}],
+            "cosh"     : [self.cosh, 1],  # {"pre"  : self.Conv2Rad}],
+            "tanh"     : [self.tanh, 1],  # {"pre"  : self.Conv2Rad}],
+            "asinh"    : [self.asinh, 1], # {"post" : self.Conv2Deg}],
+            "acosh"    : [self.acosh, 1], # {"post" : self.Conv2Deg}],
+            "atanh"    : [self.atanh, 1], # {"post" : self.Conv2Deg}],
+            "sech"     : [self.sech, 1],  # {"pre"  : self.Conv2Rad}],
+            "csch"     : [self.csch, 1],  # {"pre"  : self.Conv2Rad}],
+            "coth"     : [self.coth, 1],  # {"pre"  : self.Conv2Rad}],
+            "asech"    : [self.asech, 1], # {"post" : self.Conv2Deg}],
+            "acsch"    : [self.acsch, 1], # {"post" : self.Conv2Deg}],
+            "acoth"    : [self.acoth, 1], # {"post" : self.Conv2Deg}],
 
             # Stack functions
             "clr"      : [self.ClearStack, 0],
@@ -363,7 +363,7 @@ class Calculator(object):
         calculator_grammar := statement / ws
         statement := simple_statement / (simple_statement, ws, statement) / help_statement
         help_statement := 'help',(ws,(delimited_func / operator))?
-        simple_statement := cint / number / delimited_func / constant / operator / ((constant/number), ows, operator)
+        simple_statement := cint / delimited_func / constant / number / operator / ((constant/number), ows, operator)
         cint := [us],[0-9]+
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
         number := scaler_number / compound_number
@@ -444,7 +444,7 @@ class Calculator(object):
             "environment" : ["HCPYINIT", "hcpyinit"],
 
             # Angle mode:  must be either 'deg' or 'rad'
-            "angle_mode" : "deg",
+            "angle_mode" : "rad",
 
             # Integer mode: must be 'dec', 'hex', 'oct', 'bin', or 'ip'.
             "integer_mode" : "dec",
@@ -524,7 +524,7 @@ class Calculator(object):
             # might want to examine and set to your tastes.  They are not included
             # here because they will probably be set only once by a user.
             "fp_format" : "sig",
-            "fp_digits" : 3,
+            "fp_digits" : 10,
             "fp_show_plus_sign" : False,  # If true, "+3.4" instead of " 3.4"
             "fp_comma_decorate" : True,   # If true, 1,234 instead of 1234
             "fp_cuddle_si" : False,       # If true, "12.3k" instead of "12.3 k"
@@ -637,6 +637,7 @@ class Calculator(object):
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
                 return m.degrees(x)
+            return x
         except:
             raise ValueError("%sx can't be converted from radians to degrees" % fln())
 
@@ -650,6 +651,7 @@ class Calculator(object):
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
                 return m.radians(x)
+            return x
         except:
             raise ValueError("%sx can't be converted from degrees to radians" % fln())
 
@@ -1052,7 +1054,7 @@ class Calculator(object):
 
     Returns the sine of the top item on the stack
         """
-        return m.sin(x)
+        return m.sin(self.Conv2Rad(x))
 
     def cos(self, x):
         """
@@ -1060,7 +1062,7 @@ class Calculator(object):
 
     Returns the cosine of the top item on the stack
         """
-        return m.cos(x)
+        return m.cos(self.Conv2Rad(x))
 
     def tan(self, x):
         """
@@ -1068,7 +1070,7 @@ class Calculator(object):
 
     Returns the tangent of the top item on the stack
         """
-        return m.tan(x)
+        return m.tan(self.Conv2Rad(x))
 
     def asin(self, x):
         """
@@ -1076,7 +1078,7 @@ class Calculator(object):
 
     Returns the arc-sine of the top item on the stack
         """
-        return m.asin(x)
+        return self.Conv2Deg(m.asin(x))
 
     def acos(self, x):
         """
@@ -1084,7 +1086,7 @@ class Calculator(object):
 
     Returns the arc-cosine of the top item on the stack
         """
-        return m.acos(x)
+        return self.Conv2Deg(m.acos(x))
 
     def atan(self, x):
         """
@@ -1092,7 +1094,7 @@ class Calculator(object):
 
     Returns the arctangent of the top item on the stack
         """
-        return m.atan(x)
+        return self.Conv2Deg(m.atan(x))
 
     def sec(self, x):
         """
@@ -1100,7 +1102,7 @@ class Calculator(object):
 
     Returns the secant of the top item on the stack
         """
-        return m.sec(x)
+        return m.sec(self.Conv2Rad(x))
 
     def csc(self, x):
         """
@@ -1108,7 +1110,7 @@ class Calculator(object):
 
     Returns the cosecant of the top item on the stack
         """
-        return m.csc(x)
+        return m.csc(self.Conv2Rad(x))
 
     def cot(self, x):
         """
@@ -1116,7 +1118,7 @@ class Calculator(object):
 
     Returns the cotangent of the top item on the stack
         """
-        return m.cot(x)
+        return m.cot(self.Conv2Rad(x))
 
     def asec(self, x):
         """
@@ -1124,7 +1126,7 @@ class Calculator(object):
 
     Returns the arc-secant of the top item on the stack
         """
-        return m.asec(x)
+        return self.Conv2Deg(m.asec(x))
 
     def acsc(self, x):
         """
@@ -1132,7 +1134,7 @@ class Calculator(object):
 
     Returns the arc-cosecant of the top item on the stack
         """
-        return m.acsc(x)
+        return self.Conv2Deg(m.acsc(x))
 
     def acot(self, x):
         """
@@ -1140,7 +1142,7 @@ class Calculator(object):
 
     Returns the arc-cotangent of the top item on the stack
         """
-        return m.acot(x)
+        return self.Conv2Deg(m.acot(x))
 
     def sinh(self, x):
         """
@@ -1148,7 +1150,7 @@ class Calculator(object):
 
     Returns the hypebolic sine of the top item on the stack
         """
-        return m.sinh(x)
+        return m.sinh(self.Conv2Rad(x))
 
     def cosh(self, x):
         """
@@ -1156,7 +1158,7 @@ class Calculator(object):
 
     Returns the hypebolic cosine of the top item on the stack
         """
-        return m.cosh(x)
+        return m.cosh(self.Conv2Rad(x))
 
     def tanh(self, x):
         """
@@ -1164,7 +1166,7 @@ class Calculator(object):
 
     Returns the hypebolic tangent of the top item on the stack
         """
-        return m.tanh(x)
+        return m.tanh(self.Conv2Rad(x))
 
     def asinh(self, x):
         """
@@ -1172,7 +1174,7 @@ class Calculator(object):
 
     Returns the hypebolic arc-sine of the top item on the stack
         """
-        return m.asinh(x)
+        return self.Conv2Deg(m.asinh(x))
 
     def acosh(self, x):
         """
@@ -1180,7 +1182,7 @@ class Calculator(object):
 
     Returns the hypebolic arc-cosine of the top item on the stack
         """
-        return m.acosh(x)
+        return self.Conv2Deg(m.acosh(x))
 
     def atanh(self, x):
         """
@@ -1188,7 +1190,7 @@ class Calculator(object):
 
     Returns the hypebolic arctangent of the top item on the stack
         """
-        return m.atanh(x)
+        return self.Conv2Deg(m.atanh(x))
 
     def sech(self, x):
         """
@@ -1196,7 +1198,7 @@ class Calculator(object):
 
     Returns the hyperbolic secant of the top item on the stack
         """
-        return m.sech(x)
+        return m.sech(self.Conv2Rad(x))
 
     def csch(self, x):
         """
@@ -1204,7 +1206,7 @@ class Calculator(object):
 
     Returns the hyperbolic cosecant of the top item on the stack
         """
-        return m.csch(x)
+        return m.csch(self.Conv2Rad(x))
 
     def coth(self, x):
         """
@@ -1212,7 +1214,7 @@ class Calculator(object):
 
     Returns the hyperbolic cotangent of the top item on the stack
         """
-        return m.coth(x)
+        return m.coth(self.Conv2Rad(x))
 
     def asech(self, x):
         """
@@ -1220,7 +1222,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-secant of the top item on the stack
         """
-        return m.asech(x)
+        return self.Conv2Deg(m.asech(x))
 
     def acsch(self, x):
         """
@@ -1228,7 +1230,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-cosecant of the top item on the stack
         """
-        return m.acsch(x)
+        return self.Conv2Deg(m.acsch(x))
 
     def acoth(self, x):
         """
@@ -1236,7 +1238,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-cotangent of the top item on the stack
         """
-        return m.acoth(x)
+        return self.Conv2Deg(m.acoth(x))
 
     def ln(self, x):
         """
@@ -2107,7 +2109,11 @@ class Calculator(object):
         """
     Usage: deg
 
-    Set angle mode to degrees
+    Set angle mode to degrees.  This means that all values
+    used by the various trigonometric functions are assumed
+    to be already expressed in degrees.  To do this, all
+    values are converted behind the scenes to radians before
+    passing them to the functions
         """
         self.cfg["angle_mode"] = "deg"
 
@@ -2115,7 +2121,9 @@ class Calculator(object):
         """
     Usage: rad
 
-    Set angle mode to radians
+    Set angle mode to radians.  This means that all values
+    used by the various trigonometric functions are assumed
+    to be already expressed in radians.
         """
         self.cfg["angle_mode"] = "rad"
 
