@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # :exec set tabstop=4 softtab expandtab encoding=utf8 :
 
-'''
+"""
 Provide the basic calculational engine for the calculator.
 
 $Id: hc.py 1.87 2009/03/17 18:54:09 donp Exp $
@@ -35,18 +35,13 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
+"""
 
 #----------------------------------
 # Python library stuff
-import sys, getopt
-import time
+import sys, getopt, os, time, readline
 from atexit import register as atexit
-import readline
 from string import strip
-from os import remove, system, urandom, environ
-import os.path
-from textwrap import wrap
 import traceback
 import re as regex
 from tempfile import mkstemp
@@ -103,9 +98,6 @@ JULIAN_UNIX_EPOCH = Julian("1Jan1970:00:00:00")
 class ParseError(Exception):
     pass
 
-class InsufficientStackSize(Exception):
-    pass
-
 def _functionId(nFramesUp=0):
     """ Create a string naming the function n frames up on the stack.
     """
@@ -116,17 +108,10 @@ def isint(x):
     return isinstance(x, int) or isinstance(x, long) or isinstance(x, Zn)
 
 class Calculator(object):
-    ANGLE_RADIANS = 0
-    ANGLE_DEGREES = 1
-    VECTOR_CARTESIAN = 0
-    VECTOR_POLAR = 1
-
     def __init__(self, arguments, options):
         self.stack = Stack()
         self.stack_index = True
         self.constants = {}
-        self.angle_mode = Calculator.ANGLE_RADIANS
-        self.vector_mode = Calculator.VECTOR_CARTESIAN
         self.display = Display()     # Used to display messages to user
         self.fp = mpFormat()         # For formatting floating point numbers
         self.ap = mpFormat()         # For formatting arguments of complex numbers
@@ -150,8 +135,11 @@ class Calculator(object):
             "/"        : [self.divide, 2],
             "div"      : [self.integer_divide, 2],
             "%"        : [self.Mod, 2],
+            "mod"      : [self.Mod, 2],
             "and"      : [self.bit_and, 2],
+            "&"        : [self.bit_and, 2],
             "or"       : [self.bit_or, 2],
+            "|"        : [self.bit_or, 2],
             "xor"      : [self.bit_xor, 2],
             "<<"       : [self.bit_leftshift, 2],
             ">>"       : [self.bit_rightshift, 2],
@@ -160,7 +148,7 @@ class Calculator(object):
             "perm"     : [self.permutation, 2],  # Permutations of y taken x at a time
             "pow"      : [self.power, 2],  # Raise y to the power of x
             "^"        : [self.power, 2],  # Raise y to the power of x
-            "atan2"    : [self.atan2, 2, {"post" : self.Conv2Deg}], #
+            "atan2"    : [self.atan2, 2], # {"post" : self.Conv2Deg}], #
             "hypot"    : [self.hypot, 2],  # sqrt(x*x + y*y)
             "round"    : [self.Round, 2],  # Round y to nearest x
             "in"       : [self.In, 2],     # True if x is in interval y
@@ -200,6 +188,9 @@ class Calculator(object):
             "chop"     : [self.Chop, 1],  # Convert x to its displayed value
             "conj"     : [self.conj, 1],  # Complex conjugate of x
             "sqrt"     : [self.sqrt, 1],  # Square root of x
+            "cbrt"     : [self.cbrt, 1],  # Cube root of x
+            "root"     : [self.root, 2],  # nth root of x
+            "roots"    : [self.roots, 2],  # nth roots of x
             "sqr"      : [self.square, 1],# Square x
             "neg"      : [self.negate, 1], # negative of x
             "mid"      : [self.mid, 1],   # Take midpoint of interval number
@@ -219,18 +210,18 @@ class Calculator(object):
             "ts"       : [self.unix_ts, 0], # return unix timestamp
 
             # trig functions
-            "sin"      : [self.sin, 1],#  {"pre"  : self.Conf2Rad}],
-            "cos"      : [self.cos, 1],#  {"pre"  : self.Conf2Rad}],
-            "tan"      : [self.tan, 1],#  {"pre"  : self.Conf2Rad}],
-            "asin"     : [self.asin, 1],# {"post" : self.Conf2Deg}],
-            "acos"     : [self.acos, 1],# {"post" : self.Conf2Deg}],
-            "atan"     : [self.atan, 1],# {"post" : self.Conf2Deg}],
-            "sec"      : [self.sec, 1],#  {"pre"  : self.Conf2Rad}],
-            "csc"      : [self.csc, 1],#  {"pre"  : self.Conf2Rad}],
-            "cot"      : [self.cot, 1],#  {"pre"  : self.Conf2Rad}],
-            "asec"     : [self.asec, 1],# {"post" : self.Conf2Deg}],
-            "acsc"     : [self.acsc, 1],# {"post" : self.Conf2Deg}],
-            "acot"     : [self.acot, 1],# {"post" : self.Conf2Deg}],
+            "sin"      : [self.sin, 1],#  {"pre"  : self.Conv2Rad}],
+            "cos"      : [self.cos, 1],#  {"pre"  : self.Conv2Rad}],
+            "tan"      : [self.tan, 1],#  {"pre"  : self.Conv2Rad}],
+            "asin"     : [self.asin, 1],# {"post" : self.Conv2Deg}],
+            "acos"     : [self.acos, 1],# {"post" : self.Conv2Deg}],
+            "atan"     : [self.atan, 1],# {"post" : self.Conv2Deg}],
+            "sec"      : [self.sec, 1],#  {"pre"  : self.Conv2Rad}],
+            "csc"      : [self.csc, 1],#  {"pre"  : self.Conv2Rad}],
+            "cot"      : [self.cot, 1],#  {"pre"  : self.Conv2Rad}],
+            "asec"     : [self.asec, 1],# {"post" : self.Conv2Deg}],
+            "acsc"     : [self.acsc, 1],# {"post" : self.Conv2Deg}],
+            "acot"     : [self.acot, 1],# {"post" : self.Conv2Deg}],
             "sinh"     : [self.sinh, 1],
             "cosh"     : [self.cosh, 1],
             "tanh"     : [self.tanh, 1],
@@ -284,7 +275,7 @@ class Calculator(object):
             "er"       : [self.EditRegisters, 0],
             "prr"      : [self.PrintRegisters, 0],
             "cfg"      : [self.ShowConfig, 0], # Show configuration
-            "mod"      : [self.Modulus, 1], # All answers displayed with this modulus
+            "modulo"   : [self.Modulus, 1], # All answers displayed with this modulus
             "clrg"     : [self.ClearRegisters, 0],
             "phi"      : [self.Phi, 0],   # Golden ratio
             ">>."      : [self.display.logoff, 0],  # Turn off logging
@@ -617,9 +608,10 @@ class Calculator(object):
             raise ValueError(self.argument_types % fln())
 
     def DownCast(self, x):
-        '''If x can be converted to an integer with no loss of information,
+        """
+        If x can be converted to an integer with no loss of information,
         do so.  If its a complex that can be converted to a real, do so.
-        '''
+        """
         if self.cfg["downcasting"] == False:
             return x
         if x == inf or x == -inf:
@@ -638,26 +630,28 @@ class Calculator(object):
         return x
 
     def Conv2Deg(self, x):
-        '''Routine to convert the top of the stack element to degrees.  This
+        """
+        Routine to convert the top of the stack element to degrees.  This
         is typically done after calling inverse trig functions.
-        '''
+        """
         try:
             if self.cfg["angle_mode"] == "deg":
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
-                return x*180/pi
+                return m.degrees(x)
         except:
             raise ValueError("%sx can't be converted from radians to degrees" % fln())
 
     def Conv2Rad(self, x):
-        '''Routine to convert the top of the stack element to radians.  This
+        """
+        Routine to convert the top of the stack element to radians.  This
         is typically done before calling trig functions.
-        '''
+        """
         try:
             if self.cfg["angle_mode"] == "deg":
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
-                return x*pi/180
+                return m.radians(x)
         except:
             raise ValueError("%sx can't be converted from degrees to radians" % fln())
 
@@ -924,6 +918,30 @@ class Calculator(object):
         """
         return m.sqrt(x)
 
+    def cbrt(self, x):
+        """
+    Usage: x cbrt
+
+    Returns the cube root of x
+        """
+        return m.cbrt(x)
+
+    def root(self, y, x):
+        """
+    Usage: y x root
+
+    Returns the xth root of y
+        """
+        return m.root(y, x, k=0)
+
+    def roots(self, y, x):
+        """
+    Usage: y x roots
+
+    Returns all the xth roots of y
+        """
+        return [ m.root(y, x, k) for k in xrange(x) ]
+
     def square(self, x):
         """
     Usage: x sqr
@@ -938,7 +956,7 @@ class Calculator(object):
 
     Returns the midpoint for interval number x
         """
-        if isinstance(x, m.mpi):
+        if isinstance(x, m.ctx_iv.ivmpf):
             return x.mid
         else:
             raise ValueError("%sNeed an interval number for mid" % fln())
@@ -1293,7 +1311,7 @@ class Calculator(object):
     the bytes to a binary fraction expressed in decimal.
         """
         numbytes = ceil(mp.prec/mpf(8)) + 1
-        bytes = urandom(numbytes)
+        bytes = os.urandom(numbytes)
         number = self.sum([ord(b)*mpf(256)**(-(i+1)) for i, b in enumerate(list(bytes))])
         return number
 
@@ -1309,7 +1327,7 @@ class Calculator(object):
     ############################################################################
     # constants.  Should these be handled differently?
     ############################################################################
-    
+
     def Phi(self):
 
         return m.mpf(m.phi)
@@ -1450,7 +1468,7 @@ class Calculator(object):
 
     Duplicates the bottom item on the stack
         """
-        return x, x
+        return [ x, x ]
 
     def dup2(self, y, x):
         """
@@ -1458,7 +1476,7 @@ class Calculator(object):
 
     Duplicates the bottom two items on the stack
         """
-        return y, x, y, x
+        return [ y, x, y, x ]
 
     def dupn(self, *args):
         """
@@ -1481,8 +1499,6 @@ class Calculator(object):
     ############################################################################
 
     def Cast(self, x, newtype, use_prec=False):
-        '''If use_prec == True, use mp.dps.
-        '''
         try:
             try:
                 if use_prec == True:
@@ -1699,15 +1715,15 @@ class Calculator(object):
     complex, rational, interval, Julian, vectors and floats
         """
         if isinstance(x, mpf):
-            return self.ip(x), self.Fp(x)
+            return [ self.ip(x), self.Fp(x) ]
         if isinstance(x, mpc):
-            return x.real, x.imag
+            return [ x.real, x.imag ]
         elif isinstance(x, Rational):
-            return x.n, x.d
+            return [ x.n, x.d ]
         elif isinstance(x, ctx_iv.ivmpf):
-            return x.a, x.b
+            return [ mpf(x.a), mpf(x.b) ]
         elif isinstance(x, Julian):
-            return x.value.a, x.value.b
+            return [ mpf(x.value.a), mpf(x.value.b) ]
         else:
             msg = "%sapart requires rational, complex, or interval number"
             raise ValueError(msg % fln())
@@ -1781,11 +1797,14 @@ class Calculator(object):
         return sgn*int(mpf("0.5") + abs(y)/x)*x
 
     def In(self, y, x):
-        '''Both x and y are expected to be interval numbers or x a number and
-        y and interval number.  Returns the boolean 'x in y'.
-        '''
+        """
+    Usage: y x in
+
+    Both x and y are expected to be interval numbers or x a number
+    and y and interval number.  Returns the boolean 'x in y'.
+        """
         msg = "%sy needs to be an interval number or Julian interval"
-        if isinstance(y, m.mpi):
+        if isinstance(y, m.ctx_iv.ivmpf):
             if self.testing:
                 if x not in y:
                     s = "x was not in y:" + nl
@@ -1795,7 +1814,7 @@ class Calculator(object):
                     exit(1)
             return x in y
         elif isinstance(y, Julian):
-            if not isinstance(y.value, m.mpi):
+            if not isinstance(y.value, m.ctx_iv.ivmpf):
                 raise ValueError(msg % fln())
             if self.testing:
                 if x not in y.value:
@@ -1851,7 +1870,7 @@ class Calculator(object):
             self.display.msg(" x is complex")
             showx(x.real, "  x.real:  ")
             showx(x.imag, "  x.imag:  ")
-        elif isinstance(x, m.mpi):
+        elif isinstance(x, m.ctx_iv.ivmpf):
             self.display.msg(" x is an interval number")
             showx(x.a, "  x.a:  ")
             showx(x.b, "  x.b:  ")
@@ -2045,16 +2064,22 @@ class Calculator(object):
         self.cfg["angle_mode"] = "rad"
 
     def Rationals(self, x):
-        '''Show rationals as rationals instead of decimals
-        '''
+        """
+    Usage: x rat
+
+    If x, show rationals as rationals instead of decimals
+        """
         if x != 0:
             self.cfg["no_rationals"] = True
         else:
             self.cfg["no_rationals"] = False
 
     def ToggleDowncasting(self, x):
-        '''Toggle downcasting: if X, downcast floats to ints if precision permits
-        '''
+        """
+    Usage: x down
+
+    Toggle downcasting: if X, downcast floats to ints if precision permits
+        """
         if x != 0:
             self.cfg["downcasting"] = True
         else:
@@ -2064,9 +2089,12 @@ class Calculator(object):
     # Other functions
 
     def Modulus(self, x):
-        '''Set up modulus arithmetic with X as the modulus (1 or 0 to cancel)
-        '''
-        if isinstance(x, m.mpc) or isinstance(x, m.mpi):
+        """
+    Usage: modulo
+
+    Set up modulus arithmetic with X as the modulus (1 or 0 to cancel)
+        """
+        if isinstance(x, m.mpc) or isinstance(x, m.ctx_iv.ivmpf):
             raise ValueError("%sModulus cannot be a complex or interval number" % fln())
         if x == 0:
             self.cfg["modulus"] = 1
@@ -2075,6 +2103,11 @@ class Calculator(object):
         return None
 
     def ClearRegisters(self):
+        """
+    Usage: clrg
+
+    Clears all registers
+        """
         self.registers = {}
 
     def ShowConfig(self):
@@ -2195,7 +2228,7 @@ class Calculator(object):
         cfg["line_width"].
         '''
         try:
-            self.cfg["line_width"] = int(environ["COLUMNS"]) - 1
+            self.cfg["line_width"] = int(os.environ["COLUMNS"]) - 1
         except:
             pass
 
@@ -2431,35 +2464,30 @@ class Calculator(object):
                         % mode)
             return s
         elif isinstance(x, ctx_iv.ivmpf):
-            a = str(x.a)
-            b = str(x.b)
-            mid = x.mid
-            delta = x.delta/2
+            a = mpf(x.a)
+            b = mpf(x.b)
+            mid = mpf(x.mid)
+            delta = mpf(x.delta)/2
             f = self.cfg["fp_format"]
             mode = self.cfg["iv_mode"]
             sp = ""
             if self.cfg["iv_space"]:
                 sp = " "
-            if self.cfg["fp_format"] != "none":
-                a = self.fp.format(x.a, f)
-                b = self.fp.format(x.b, f).strip()
+            if mode == "a":
                 mid = self.fp.format(mid, f)
                 delta = self.fp.format(delta, f).strip()
-            if mode == "a":
                 s = mid + sp + "+-" + sp + delta
             elif mode == "b":
-                a = x.mid
-                if x.mid != 0:
-                    b = 100*x.delta/(2*x.mid)
+                if mid != 0:
+                    pct = 100*delta/mid
                 else:
-                    b = mpf(0)
-                m = str(a)
-                p = str(b)
-                if self.cfg["fp_format"] != "none":
-                    m = self.fp.format(a, f)
-                    p = self.fp.format(b, f).strip()
-                s = m + sp + "(" + p + "%)"
+                    pct = mpf(0)
+                mid = self.fp.format(mid, f)
+                pct = self.fp.format(pct, f).strip()
+                s = mid + sp + "(" + pct + "%)"
             elif mode == "c":
+                a = self.fp.format(a, f)
+                b = self.fp.format(b, f).strip()
                 br1, br2 = self.cfg["iv_brackets"]
                 s = br1 + a.strip() + "," + sp + b + br2
             else:
@@ -2531,7 +2559,7 @@ class Calculator(object):
             return False
         # Open the file in the editor
         cmd = self.cfg["editor"] + " " + filename
-        system(cmd)  # We use the os.system command because it blocks
+        os.system(cmd)  # We use the os.system command because it blocks
         # Execute the new file
         newdict = {}
         try:
@@ -2572,7 +2600,7 @@ class Calculator(object):
         self.fp.close()
         # Open the file in the editor
         cmd = self.cfg["editor"] + " " + filename
-        system(cmd)  # We use the os.system command because it blocks
+        os.system(cmd)  # We use the os.system command because it blocks
         # Execute the new file
         newdict = {}
         try:
@@ -2671,7 +2699,6 @@ class Calculator(object):
             raise Exception("%sCouldn't edit x" % fln())
 
     def C_int(self, cmd, val):
-        print '%s, %s' %(cmd, val)
         try:
             n = int(val)
         except:
@@ -2698,7 +2725,7 @@ class Calculator(object):
     def C_sX(self, val):
         """
     Usage: sX where X is 'X' or X is an integer
-           sX -> set C signed integer mode with bits defined by the
+           x sX -> set C signed integer mode with bits defined by the
                 top value on the stack
            s5 -> set C signed integer mode with 5 bits
         """
@@ -2707,113 +2734,11 @@ class Calculator(object):
     def C_uX(self, val):
         """
     Usage: uX where X is 'X' or X is an integer
-           uX -> set C unsigned integer mode with bits defined by the
+           x uX -> set C unsigned integer mode with bits defined by the
                 top value on the stack
            u5 -> set C unsigned integer mode with 5 bits
         """
         self.C_int('u', val)
-
-    def Bang(self, cmd):
-        '''If the command is !, give a list of the python scripts that
-        are in cfg["helper_scripts"].  If there's an argument, execute
-        that script and push the returned number on the stack.
-        '''
-        import os.path, glob
-        try:
-            dir = os.path.normpath(self.cfg["helper_scripts"])
-            func = self.cfg["helper_script_function_name"]
-        except Exception, e:
-            raise Exception("%sBad cfg key(s) in Bang:\n%s" % (fln(), str(e)))
-        if dir:
-            try:
-                glob_spec = os.path.join(dir, "*.py")
-                files = glob.glob(glob_spec)
-                if cmd == "!":
-                    files = [os.path.split(i)[1].replace(".py", "") for i in files]
-                    files = " ".join(files)
-                    s = "Scripts to execute:" + nl + nl.join(wrap(files))
-                    self.display.msg(s)
-                else:
-                    name = cmd[1:]
-                    sys.path.insert(0, dir)
-                    s = "from %s import %s\nresult = %s(display)\n" % \
-                        (name, func, func)
-                    co = compile(s, "", "exec")
-                    d = {"display":self.display}
-                    eval(co, d, d)
-                    result = d["result"]
-                    if result != None:
-                        # TODO: Need to validate that result is a valid stack
-                        # object.
-                        self.stack.push(result)
-            except Exception, e:
-                raise Exception("%s'%s' failed:\n%s" % (fln(), cmd, str(e)))
-
-    def Tee(self, cmd):
-        write_mode = "wb"  # new file
-        chop_off_leader = 2
-        if cmd[:3] == ">>>":
-            write_mode = "ab"  # append to possibly existing file
-            if len(cmd) < 4:
-                raise Exception("%s>>> command requires a file name" % fln())
-            chop_off_leader = 3
-        file = cmd[chop_off_leader:]
-        try:
-            f = open(file, write_mode)
-            self.display.logon(f)
-            self.tee_is_on = True
-        except:
-            raise Exception("%sCouldn't open '%s' for tee" % (fln(), file))
-
-    def TeeOff(self):
-        try:
-            self.display.logoff()
-            self.tee_is_on = False
-        except:
-            pass
-
-    def ExpandCommand(self, cmd):
-        '''If cmd is of the form n*x, expand it into a list of n of the
-        commands x and return it.  Otherwise, just return x.
-        '''
-        if len(cmd) > 2 and "*" in cmd:
-            try:
-                loc = cmd.find("*")
-                if loc == 0 or loc == len(cmd) - 1:
-                    return cmd
-                n = cmd[:loc]
-                x = cmd[loc+1:]
-                n = int(n)
-                return n*[x]
-            except:
-                pass
-        return cmd
-
-    def ParseCommandInput(self, cmd):
-        '''cmd is a nonempty string and needs to be parsed.  If it contains the
-        cfg["command_separator"] string, then the user wanted those to separate
-        commands, as some of the individual commands contain whitespace.
-        Otherwise, parse on whitespace.  Return a list of one or more command
-        strings.
-        '''
-        assert cmd, "Error in program:  cmd is empty string"
-        sep = self.cfg["command_separator"]
-        if sep in cmd:
-            commands = [strip(s) for s in cmd.split(sep)]
-        else:
-            commands = cmd.split()
-        assert commands, "Error in program:  empty list"
-        # Check each command for multiple form:  n*x where n is an integer
-        # and x is a command.  If present, expand them into separate
-        # commands.
-        commands = [ExpandCommand(i) for i in commands]
-        new_commands = []
-        for i in commands:
-            if isinstance(i, list):
-                new_commands += i
-            else:
-                new_commands.append(i)
-        return new_commands
 
     def GreaterThanEqual(self, x, y):
         """
@@ -2893,40 +2818,8 @@ class Calculator(object):
             exit(1)
         return result
 
-    def ReadInputFromFile(self, command, commands_dict):
-        stream = open(command[2:])
-        while stream:
-            cmd_line = GetLineOfInput(stream)
-            if cmd_line == self.eof: break
-            if cmd_line == self.comment_line or cmd_line == "": continue
-            cmds = ParseCommandInput(cmd_line)
-            if not cmds: continue
-            n = len(cmds) - 1
-            for i, cmd in enumerate(cmds):
-                status = ProcessCommand(cmd, commands_dict, i==n)
-                if status == status_quit or \
-                   status == status_error or \
-                   status == status_unknown_command:
-                    return status
-                cmd = ""
-        if status == status_ok:
-            return status_ok_no_display
-        return status
-
     def cleanup(self):
         readline.write_history_file(os.path.expanduser('~')+'/.pycalc/history')
-
-    def show_stack(self):
-        depth = len(self.stack)
-        if self.stack_index:
-            template = "%%(index) %dd: %%(value)s" % (2+int(m.log10(max(depth,1))))
-        else:
-            template = "%(value)s"
-        for v in self.stack:
-            print template % {'index': depth, 'value':
-                v.show(self.cfg["integer_mode"], self.cfg["prec"], self.vector_mode, self.angle_mode)
-            }
-            depth -= 1
 
     def push(self, val):
         if val is None:
@@ -2988,7 +2881,7 @@ class Calculator(object):
             n = int(self.pop())
         #print "stack size is %d"%len(self.stack)
         if n > len(self.stack):
-            raise InsufficientStackSize("Looking for %d args" % n)
+            raise IndexError("Looking for %d args" % n)
         for i in range(n):
             val = self.pop()
             if isinstance(val, Zn): val = int(val)
@@ -3006,13 +2899,11 @@ class Calculator(object):
                     if arg in ['help', '?']:
                         self.commands_dict['help'][0](line)
                         break
-                    elif cints.match(arg):
-                        self.C_int(arg[0], arg[1:])
                     elif arg in self.commands_dict:
                         args = self.prepare_args(self.commands_dict[arg][1])
                         retval = self.commands_dict[arg][0](*args)
-                        if not isinstance(retval, tuple):
-                            retval = (retval,)
+                        if not isinstance(retval, list):
+                            retval = [retval]
                         for v in retval:
                             if v is not None:
                                 if isint(v):
@@ -3023,6 +2914,8 @@ class Calculator(object):
                     # these are the base tokens for functions and constants
                     elif arg in ['null', 'nop']:
                         pass
+                    elif cints.match(arg):
+                        self.C_int(arg[0], arg[1:])
                     else:
                         # this should be a number....
                         num = self.chomp(arg)
@@ -3164,10 +3057,7 @@ def main(argv):
         pass
     print
     calculator.SaveConfiguration()
-    if status == status_error:
-        exit(1)
-    else:
-        exit(0)
+    sys.exit(0)
 
 if __name__ == "__main__":
     main(sys.argv)

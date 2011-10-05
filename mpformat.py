@@ -166,7 +166,7 @@ class mpFormat(object):
         elif format_type == "engsi":
             return self.engsi(number)
         else:
-            raise mpFormatException("Unsupported format_type")
+            return str(number)
 
     def _pathological(self, number):
         '''Return a string if the number is not 'normal'.'''
