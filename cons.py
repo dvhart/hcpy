@@ -462,22 +462,22 @@ def ConstructConstants():
     constants = ParseRawData()
     wanted = (
        ("Avogadro constant", "cN"),
-       #("Boltzmann constant", "ck"),
+       ("Boltzmann constant", "ck"),
        ("Newtonian constant of gravitation", "cG"),
-       #("Planck constant", "ch"),
-       #("Stefan-Boltzmann constant", "csigma"),
-       #("electron mass", "cme"),
+       ("Planck constant", "ch"),
+       ("Stefan-Boltzmann constant", "csigma"),
+       ("electron mass", "cme"),
        ("atomic unit of charge", "ce"),
-       #("electron volt", "ceV"),
-       #("molar gas constant", "cR"),
-       #("neutron mass", "cmn"),
-       #("proton mass", "cmp"),
+       ("electron volt", "ceV"),
+       ("molar gas constant", "cR"),
+       ("neutron mass", "cmn"),
+       ("proton mass", "cmp"),
        ("speed of light in vacuum", "cc"),
-       #("standard acceleration of gravity", "cg"),
-       #("standard atmosphere", "catm"),
-       #("unified atomic mass unit", "camu"),
-       #("electric constant", "ceps"),
-       #("mag. constant", "cmu"),
+       ("standard acceleration of gravity", "cg"),
+       ("standard atmosphere", "catm"),
+       ("unified atomic mass unit", "camu"),
+       ("electric constant", "ceps"),
+       ("mag. constant", "cmu"),
     )
     global physical_constants
     global physical_constant_names
@@ -527,7 +527,11 @@ def main(display):
         try:
             n = int(response)
             if 1 <= n <= len(getkey):
-                return constants[getkey[n-1]]
+                display.msg(str(constants[getkey[n-1]]))
         except:
             display.msg("Input not recognized.  Try again.  q to exit.")
 
+if __name__ == "__main__":
+    from display import Display
+    display = Display()
+    main(display)
