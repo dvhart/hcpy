@@ -116,7 +116,8 @@ ip6 = re.compile(r"""
     ^((([0-9a-f]{1,4}:){1,4})(:[0-9a-f]{1,4}){1,3})$|
     ^((([0-9a-f]{1,4}:){1,3})(:[0-9a-f]{1,4}){1,4})$|
     ^((([0-9a-f]{1,4}:){1,2})(:[0-9a-f]{1,4}){1,5})$|
-    ^((([0-9a-f]{1,4}:){1,1})(:[0-9a-f]{1,4}){1,6})$
+    ^((([0-9a-f]{1,4}:){1,1})(:[0-9a-f]{1,4}){1,6})$|
+    ^((([0-9a-f]{1,4}:){7,7})([0-9a-f]{1,4}))$|
     ^((([0-9a-f]{1,4}:){1,7}|:):)$|
     ^(:(:[0-9a-f]{1,4}){1,7})$|
     ^(((([0-9a-f]{1,4}:){6})(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}))$|
@@ -233,8 +234,8 @@ class Number(object):
             for i in range(len(s)):
                 v += '%02x' % ord(s[i])
             return v
-        mo = ip.match(s)
         try:
+            mo = ip.match(s)
             if mo:
                 dquad = [ int(i) for i in mo.groups() if i ]
                 if max(dquad) > 255:
@@ -242,12 +243,12 @@ class Number(object):
                 ps = socket.inet_pton(socket.AF_INET, s)
                 return self.i(unpack(ps))
             else:
-                mo = ip6.match(s)
-                if mo:
+                if ip6.match(s):
                     ps = socket.inet_pton(socket.AF_INET6, s)
                     return self.i(unpack(ps))
-        except:
-            return None
+        except Exception, e:
+            pass
+        return None
 
     def q(self, s):
         mo = rational.match(s)

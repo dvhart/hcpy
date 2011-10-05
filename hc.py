@@ -365,9 +365,13 @@ class Calculator(object):
         calculator_grammar := statement / ws
         statement := simple_statement / (simple_statement, ws, statement) / help_statement
         help_statement := 'help',(ws,(delimited_func / operator))?
-        simple_statement := cint / delimited_func / constant / number / operator / ((constant/number), ows, operator)
+        simple_statement := cint / delimited_func / constant / ipaddr / number / operator / ((constant/number), ows, operator)
         cint := [us],[0-9]+
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
+        ipaddr := ipv6 / ipv4
+        #ipv6 := (((hex_chars)?),':')+,((hex_chars)?),(':',((hex_chars)?))+
+        ipv6 := '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
+        ipv4 := [0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?
         number := scaler_number / compound_number
         compound_number := vector / array
         scaler_number := julian / complex_number / imag_number / real_number
@@ -409,7 +413,7 @@ class Calculator(object):
         try:
             self.parser = generator.buildParser(grammar).parserbyname('calculator_grammar')
         except:
-            print "Something bad happened in init().  This may not work at all..."
+            print "Parser failed to build.  This may not work at all..."
             type,value,tb = sys.exc_info()
             traceback.print_exception(type, value, tb, None, sys.stdout)
         self.chomppre = regex.compile(r"^\s*")
@@ -2977,7 +2981,7 @@ class Calculator(object):
                                 if num is not None:
                                     self.push(num)
                             except ValueError:
-                                print "Invalid input: ", arg
+                                self.errors.append("Invalid input: %s" % arg)
                 if arg not in ['help', '?']:
                     self.DisplayStack()
             except EOFError:
