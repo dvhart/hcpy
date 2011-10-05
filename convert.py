@@ -55,7 +55,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return Zn(int(mpf(x.n)/mpf(x.d)))
         elif isinstance(x, mpf):      return Zn(int(x))
         elif isinstance(x, mpc):      return Zn(int(abs(x)))
-        elif isinstance(x, mpi):      return Zn(int(x.mid))
+        elif isinstance(x, ctx_iv.ivmpf):      return Zn(int(x.mid))
         elif isinstance(x, Julian):   return Zn(int(x))
         else: raise e
     elif arg_type == RAT:
@@ -63,7 +63,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return x
         elif isinstance(x, mpf):      return Rational().frac(x, digits)
         elif isinstance(x, mpc):      return Rational().frac(abs(x), digits)
-        elif isinstance(x, mpi):      return Rational(x.mid)
+        elif isinstance(x, ctx_iv.ivmpf):      return Rational(x.mid)
         elif isinstance(x, Julian):   return Rational().frac(x.to_mpf(), digits)
         else: raise e
     elif arg_type == MPF:
@@ -71,7 +71,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return x.mpf()
         elif isinstance(x, mpf):      return x
         elif isinstance(x, mpc):      return abs(x)
-        elif isinstance(x, mpi):      return x.mid
+        elif isinstance(x, ctx_iv.ivmpf):      return x.mid
         elif isinstance(x, Julian):   return x.to_mpf()
         else: raise e
     elif arg_type == MPC:
@@ -79,7 +79,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return x.mpc()
         elif isinstance(x, mpf):      return mpc(x, 0)
         elif isinstance(x, mpc):      return x
-        elif isinstance(x, mpi):      return mpc(x.mid, 0)
+        elif isinstance(x, ctx_iv.ivmpf):      return mpc(x.mid, 0)
         elif isinstance(x, Julian):   return mpc(x.to_mpf(), 0)
         else: raise e
     elif arg_type == MPI:
@@ -87,7 +87,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return x.mpi()
         elif isinstance(x, mpf):      return mpi(x)
         elif isinstance(x, mpc):      return mpi(abs(x))
-        elif isinstance(x, mpi):      return x
+        elif isinstance(x, ctx_iv.ivmpf):      return x
         elif isinstance(x, Julian):
             if isinstance(x.value, mpf):  return mpi(x.value)
             else:                         return x.value
@@ -97,7 +97,7 @@ def Convert(x, arg_type, digits=0):
         elif isinstance(x, Rational): return Julian(mpf(x.n)/mpf(x.d))
         elif isinstance(x, mpf):      return Julian(x)
         elif isinstance(x, mpc):      return Julian(abs(x))
-        elif isinstance(x, mpi):      return Julian(x)
+        elif isinstance(x, ctx_iv.ivmpf):      return Julian(x)
         elif isinstance(x, Julian):   return x
         else: raise e
     else:

@@ -39,7 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #----------------------------------
 # Python library stuff
-import sys, getopt, time
+import sys, getopt
+import time
+from atexit import register as atexit
 import readline
 from string import strip
 from os import remove, system, urandom, environ
@@ -95,6 +97,7 @@ status_error            = 2
 status_unknown_command  = 3
 status_ok_no_display    = 4
 status_interrupted      = 5
+JULIAN_UNIX_EPOCH = Julian("1Jan1970:00:00:00")
 
 
 class ParseError(Exception):
@@ -118,11 +121,7 @@ class Calculator(object):
     VECTOR_CARTESIAN = 0
     VECTOR_POLAR = 1
 
-    def __init__(self, *args, **kwargs):
-        if options.default_config:
-            self.display.msg("Using default configuration only")
-        if options.version:
-            self.display.msg("hcpy version 6 (17 Mar 2009)")
+    def __init__(self, arguments, options):
         self.stack = Stack()
         self.stack_index = True
         self.constants = {}
@@ -182,16 +181,23 @@ class Calculator(object):
             "C"        : [self.Cast_c, 1],  # Convert to complex number
             "T"        : [self.Cast_t, 1],  # Convert to time/date
             "V"        : [self.Cast_v, 1],  # Convert to interval number
+            "2deg"     : [self.ToDegrees, 1],  # Convert x to radians
+            "2rad"     : [self.ToRadians, 1],  # Convert x to degrees
+            "unix"     : [self.ToUnix, 1],  # Convert julian to unix timestamp
+            "julian"   : [self.ToJulian, 1], # Convert unix timestamp to julian
+            "2hr"      : [self.hr, 1],    # Convert to decimal hour format
+            "2hms"     : [self.hms, 1],   # Convert to hour/minute/second format
             "ip"       : [self.ip, 1],    # Integer part of x
             "fp"       : [self.Fp, 1],    # Fractional part of x
+            "re"       : [self.RealPart, 1],     # Real part of x
+            "im"       : [self.ImagPart, 1],     # Imaginary part of x
+
             "inv"      : [self.reciprocal, 1], # reciprocal of x
             "~"        : [self.bit_negate, 1],   # Flip all the bits of x
             "numer"    : [self.numerator, 1],    # Numerator of rational
             "denom"    : [self.denominator, 1],  # Denominator of rational
-            "apart"    : [self.apart, 1], # Take rational, complex, or interval apart
+            "split"    : [self.split, 1], # Take rational, complex, or interval apart
             "chop"     : [self.Chop, 1],  # Convert x to its displayed value
-            "re"       : [self.RealPart, 1],     # Real part of x
-            "im"       : [self.ImagPart, 1],     # Imaginary part of x
             "conj"     : [self.conj, 1],  # Complex conjugate of x
             "sqrt"     : [self.sqrt, 1],  # Square root of x
             "sqr"      : [self.square, 1],# Square x
@@ -209,8 +215,8 @@ class Calculator(object):
             "exp"      : [self.exp, 1], # Exponential function
 
             # 0-nary functions
-            "now"      : [self.now, 0],  # returns the current date/time
             "rand"     : [self.rand, 0],  # Uniform random number
+            "ts"       : [self.unix_ts, 0], # return unix timestamp
 
             # trig functions
             "sin"      : [self.sin, 1],#  {"pre"  : self.Conf2Rad}],
@@ -237,8 +243,6 @@ class Calculator(object):
             "asech"    : [self.asech, 1],
             "acsch"    : [self.acsch, 1],
             "acoth"    : [self.acoth, 1],
-            "2deg"     : [self.ToDegrees, 1],  # Convert x to radians
-            "2rad"     : [self.ToRadians, 1],  # Convert x to degrees
 
             # Stack functions
             "clr"      : [self.ClearStack, 0],
@@ -282,15 +286,13 @@ class Calculator(object):
             "cfg"      : [self.ShowConfig, 0], # Show configuration
             "mod"      : [self.Modulus, 1], # All answers displayed with this modulus
             "clrg"     : [self.ClearRegisters, 0],
-           #"phi"      : [self.Phi, 0],   # Golden ratio
+            "phi"      : [self.Phi, 0],   # Golden ratio
             ">>."      : [self.display.logoff, 0],  # Turn off logging
 
             # Display functions
             "mixed"    : [self.mixed, 1], # Toggle mixed fraction display
             "rat"      : [self.Rationals, 1], # Toggle whether to use rationals
             "down"     : [self.ToggleDowncasting, 1],
-            "2hr"      : [self.hr, 1],    # Convert to decimal hour format
-            "2hms"     : [self.hms, 1],   # Convert to hour/minute/second format
             "on"       : [self.display.on, 0],  # Turn display of answers on
             "off"      : [self.display.off, 0],  # Turn display of answers off
             "prec"     : [self.Prec, 1],  # Set calculation precision
@@ -346,9 +348,19 @@ class Calculator(object):
                 readline.read_history_file(os.path.expanduser('~')+'/.pycalc/history')
             except IOError:
                 pass
-            #atexit.register(self.cleanup)
+            atexit(self.cleanup)
 
-        grammar = """
+        defined_constants = ["'null'"]
+        for c in self.constants.iterkeys():
+            defined_constants.append("'%s'" %c)
+        defined_functions = ["'nop'"]
+        funcs = self.commands_dict.keys()
+        funcs.sort(reverse=True)
+        for f in funcs:
+            if f in ['+', '-', '*', '/', '%', '^', '&', '!']:
+                continue
+            defined_functions.append("'%s'" %f)
+        grammar = ''.join(["""
         calculator_grammar := statement / ws
         statement := simple_statement / (simple_statement, ws, statement) / help_statement
         help_statement := 'help',(ws,(delimited_func / operator))?
@@ -357,7 +369,7 @@ class Calculator(object):
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
         number := scaler_number / compound_number
         compound_number := vector / array
-        scaler_number := complex_number / imag_number / real_number
+        scaler_number := julian / complex_number / imag_number / real_number
         complex_number := (real_number_ns,('+'/'-'),imag_number) / ('(',real_number,',',real_number,')') / ('(', real_number, (',', ows)?, '<', real_number, ')')
         imag_number := real_number_ns,[ij]
         array := '[', vector_list, ']'
@@ -366,6 +378,10 @@ class Calculator(object):
         real_number_list := real_number, (','?, real_number)*
         real_number := ows, real_number_ns, ows
         real_number_ns := bin_number / oct_number / hex_number / dec_number
+        # now and today are 'numbers' interpreted by Julian class
+        julian := 'now' / 'today' / datetime
+        datetime := [0-9],[0-9]?,month,[0-9],[0-9],[0-9],[0-9],[-:],[0-9],[0-9],':',[0-9],[0-9],':',[0-9],[0-9],('.',[0-9]+)?
+        month := ([Jj],[Aa],[Nn]) / ([Ff],[Ee],[Bb]) / ([Mm],[Aa],[Rr]) / ([Aa],[Pp],[Rr]) / ([Mm],[Aa],[Yy]) / ([Jj],[Uu],[Nn]) / ([Jj],[Uu],[Ll]) / ([Aa],[Uu],[Gg]) / ([Ss],[Ee],[Pp]) / ([Oo],[Cc],[Tt]) / ([Nn],[Oo],[Vv]) / ([Dd],[Ee],[Cc])
         hex_number := hex_float / hex_whole
         dec_number := dec_float / dec_whole
         oct_number := oct_float / oct_whole
@@ -385,20 +401,11 @@ class Calculator(object):
         ows := [ \n\t]*
         ws := [ \n\t],ows
         delimited_func := (ws,func,ws) / (ws,func) / (func,ws) / func
-        """
-        defined_constants = "constant := 'null'"
+        """,
+            "       func := %s" % ' / '.join(defined_functions),
+            "       constant := %s" % ' / '.join(defined_constants)
+        ])
         try:
-            for c in self.constants.iterkeys():
-                defined_constants += " / '%s'" %c
-            grammar += defined_constants + "\n        "
-            defined_functions = "func := 'nop'"
-            funcs = self.commands_dict.keys()
-            funcs.sort(reverse=True)
-            for f in funcs:
-                if f in ['+', '-', '*', '/', '%', '^', '&', '!']:
-                    continue
-                defined_functions += " / '%s'" %f
-            grammar += defined_functions
             self.parser = generator.buildParser(grammar).parserbyname('calculator_grammar')
         except:
             print "Something bad happened in init().  This may not work at all..."
@@ -408,9 +415,9 @@ class Calculator(object):
         self.chomppost = regex.compile(r"\s*$")
         self.check_help()
 
-    #---------------------------------------------------------------------------
-    #---------------------------------------------------------------------------
-    # Global variables
+        #---------------------------------------------------------------------------
+        #---------------------------------------------------------------------------
+        # Global variables
         self.stdin_finished = False  # Flags when stdin has reached EOF
         self.comment_line = "\xec\xeb"
         self.eof = "\xed\xee"
@@ -584,6 +591,11 @@ class Calculator(object):
         self.RunChecks()
         self.CheckEnvironment()
         self.GetConfiguration()
+
+        if options.default_config:
+            self.display.msg("Using default configuration only")
+        if options.version:
+            self.display.msg("hcpy version 6 (17 Mar 2009)")
 
     #---------------------------------------------------------------------------
     # Utility functions
@@ -874,16 +886,6 @@ class Calculator(object):
     #---------------------------------------------------------------------------
     # Unary functions
 
-    def ip(self, x):
-        if isint(x):
-            return x
-        return Convert(x, INT)
-
-    def Fp(self, x):
-        if isint(x):
-            return m.mpf(0)
-        return Convert(x, MPF) - self.ip(x).value
-
     def reciprocal(self, x):
         if x == 0:
             if self.cfg["allow_divide_by_zero"]:
@@ -901,69 +903,6 @@ class Calculator(object):
 
     def negate(self, x):
         return -x
-
-    def numerator(self, x):
-        return Convert(x, RAT).n
-
-    def denominator(self, x):
-        return Convert(x, RAT).d
-
-    def apart(self, x):
-        if isinstance(x, mpc):
-            return x.real, x.imag
-        elif isinstance(x, Rational):
-            return x.n, x.d
-        elif isinstance(x, mpi):
-            return x.a, x.b
-        elif isinstance(x, Julian):
-            return x.value.a, x.value.b
-        else:
-            msg = "%sapart requires rational, complex, or interval number"
-            raise ValueError(msg % fln())
-
-    def ToIV(self, y, x):
-        """
-    Usage: y x iv
-
-    Convert to interval number [y,x]
-        """
-        if y > x:
-            msg = "%sy register must be <= x register"
-            raise ValueError(msg % fln())
-        y = Convert(y, MPF)
-        x = Convert(x, MPF)
-        return mpi(y, x)
-
-    def Chop(self, x):
-        """
-    Usage: x chop
-
-    Returns the the value of x as displayed
-        """
-        n = Number()
-        return n(self.Format(x).replace(" ", ""))
-
-    def RealPart(self, x):
-        """
-    Usage: x rp
-
-    Returns the real part of complex number x
-        """
-        if isinstance(x, m.mpc):
-            return x.real
-        else:
-            return x
-
-    def ImagPart(self, x):
-        """
-    Usage: x ip
-
-    Returns the imaginary part of complex number x
-        """
-        if isinstance(x, m.mpc):
-            return x.imag
-        else:
-            return x
 
     def conj(self, x):
         """
@@ -1316,18 +1255,6 @@ class Calculator(object):
         """
         return m.arg(x)
 
-    def ToDegrees(self, x):
-        if x == 0: return x
-        if isinstance(x, m.mpc):
-            raise ValueError("%sNot an appropriate operation for a complex number" % fln())
-        return degrees(x)
-
-    def ToRadians(self, x):
-        if x == 0: return x
-        if isinstance(x, m.mpc):
-            raise ValueError("%sNot an appropriate operation for a complex number" % fln())
-        return radians(x)
-
     def gamma(self, x):
         return m.gamma(x)
 
@@ -1357,45 +1284,6 @@ class Calculator(object):
         y = m.findroot(lambda z: ncdf(z) - x, 0)
         return y
 
-    def hr(self, x):
-        'Convert hms to decimal hours'
-        x = Convert(x, MPF)
-        hours = int(x)
-        x -= hours
-        x *= 100
-        minutes = int(x)
-        x -= minutes
-        x *= 100
-        return hours + minutes/mpf(60) + x/3600
-
-    def hms(self, x):
-        'Convert decimal hours to hours.MMSSss'
-        x = Convert(x, MPF)
-        hours = int(x)
-        x -= hours
-        x *= 60
-        minutes = int(x)
-        if minutes == 60:
-            hours += 1
-            minutes = 0
-        x -= minutes
-        seconds = 60*x
-        if seconds == 60:
-            minutes += 1
-            seconds = 0
-        if minutes == 60:
-            hours += 1
-            minutes = 0
-        return hours + minutes/mpf(100) + seconds/mpf(10000)
-
-    def now(self):
-        """
-    Usage: now
-
-    Return the current date/time as a float for use with Julian maths
-        """
-        return time.time()
-
     def rand(self):
         """
     Usage: rand
@@ -1409,76 +1297,22 @@ class Calculator(object):
         number = self.sum([ord(b)*mpf(256)**(-(i+1)) for i, b in enumerate(list(bytes))])
         return number
 
-    #---------------------------------------------------------------------------
-    # Other functions
+    def unix_ts(self):
+        """
+    Usage: ts
 
-    def Modulus(self, x):
-        '''Set up modulus arithmetic with X as the modulus (1 or 0 to cancel)
-        '''
-        if isinstance(x, m.mpc) or isinstance(x, m.mpi):
-            raise ValueError("%sModulus cannot be a complex or interval number" % fln())
-        if x == 0:
-            self.cfg["modulus"] = 1
-        else:
-            self.cfg["modulus"] = x
-        return None
+    Return the current Unix date/time as a float
+    (use 2Jul to transform to a julian date)
+        """
+        return m.mpf(time.time())
 
-    def Rationals(self, x):
-        '''Show rationals as rationals instead of decimals
-        '''
-        if x != 0:
-            self.cfg["no_rationals"] = True
-        else:
-            self.cfg["no_rationals"] = False
-
-    def ToggleDowncasting(self, x):
-        '''Toggle downcasting: if X, downcast floats to ints if precision permits
-        '''
-        if x != 0:
-            self.cfg["downcasting"] = True
-        else:
-            self.cfg["downcasting"] = False
-
-    def ClearRegisters(self):
-        self.registers = {}
-
+    ############################################################################
+    # constants.  Should these be handled differently?
+    ############################################################################
+    
     def Phi(self):
-        return m.phi
 
-    def ShowConfig(self):
-        d = {True:"on", False:"off"}
-        per = d[self.cfg["persist"]]
-        st = str(self.cfg["stack_display"])
-        lw = self.cfg["line_width"]
-        mf = str(self.cfg["mixed_fractions"])
-        dc = d[self.cfg["downcasting"]]
-        sps = d[self.cfg["fp_show_plus_sign"]]
-        am = self.cfg["angle_mode"]
-        im = self.cfg["integer_mode"]
-        imm = self.cfg["imaginary_mode"]
-        sd = str(self.cfg["stack_display"])
-        fmt = self.cfg["fp_format"]
-        dig = str(self.cfg["fp_digits"])
-        ad = str(self.cfg["arg_digits"])
-        af = self.cfg["arg_format"]
-        pr = str(mp.dps)
-        br = d[self.cfg["brief"]]
-        nr = d[self.cfg["no_rationals"]]
-        cd = d[self.cfg["fp_comma_decorate"]]
-        adz = d[self.cfg["allow_divide_by_zero"]]
-        iv = self.cfg["iv_mode"]
-        cdiv = d[self.cfg["C_division"]]
-        dbg = d[get_debug()]
-        if 1:
-            s = '''Configuration:
-      Stack:%(st)s    Commas:%(cd)s   +sign:%(sps)s   Allow divide by zero:%(adz)s
-      iv%(iv)s    brief:%(br)s  C-type integer division:%(cdiv)s   Rationals:%(nr)s
-      Line width:%(lw)s    Mixed fractions:%(mf)s     Downcasting:%(dc)s
-      Complex numbers:  %(imm)s    arguments:%(af)s %(ad)s digits Debug:%(dbg)s
-      Display: %(fmt)s %(dig)s digits   prec:%(pr)s  Integers:%(im)s  Angles:%(am)s''' \
-        % locals()
-
-        self.display.msg(s)
+        return m.mpf(m.phi)
 
     def Pi(self):
         return m.mpf(m.mp.pi)
@@ -1489,17 +1323,10 @@ class Calculator(object):
     def imaginary(self):
         return m.mpc(0,1)
 
-    def mixed(self, x):
-        if x != 0:
-            self.cfg["mixed_fractions"] = True
-            Rational.mixed = True
-        else:
-            self.cfg["mixed_fractions"] = False
-            Rational.mixed = False
-
     ############################################################################
     # Stack callback functions
     ############################################################################
+
     def ClearStack(self):
         """
     Usage: clear
@@ -1623,8 +1450,7 @@ class Calculator(object):
 
     Duplicates the bottom item on the stack
         """
-        self.stack.push(x)
-        return x
+        return x, x
 
     def dup2(self, y, x):
         """
@@ -1632,10 +1458,7 @@ class Calculator(object):
 
     Duplicates the bottom two items on the stack
         """
-        self.stack.push(y)
-        self.stack.push(x)
-        self.stack.push(y)
-        return x
+        return y, x, y, x
 
     def dupn(self, *args):
         """
@@ -1643,12 +1466,7 @@ class Calculator(object):
 
     Duplicates the bottom n items on the stack
         """
-        n = len(args)
-        for a in range(1, n+1):
-            self.stack.push(args[-a])
-        for a in range(1, n+1):
-            self.stack.push(args[-a])
-        return None
+        return args+args
 
     def depth(self):
         """
@@ -1659,7 +1477,7 @@ class Calculator(object):
         return len(self.stack)
 
     ############################################################################
-    # End of callback functions
+    # Casting and converting functions
     ############################################################################
 
     def Cast(self, x, newtype, use_prec=False):
@@ -1679,25 +1497,242 @@ class Calculator(object):
             return None
 
     def Cast_i(self, x):
+        """
+    Usage: x I
+
+    Returns x casted as a integer value
+        """
         return self.Cast(x, INT)
 
     def Cast_qq(self, x):
+        """
+    Usage: x QQ
+
+    Returns x casted as a rational value (using displayed precision)
+        """
         return self.Cast(x, RAT, use_prec=True)
 
     def Cast_q(self, x):
+        """
+    Usage: x Q
+
+    Returns x casted as a rational value
+        """
         return self.Cast(x, RAT, use_prec=False)
 
     def Cast_r(self, x):
+        """
+    Usage: x R
+
+    Returns x casted as a real value
+        """
         return self.Cast(x, MPF)
 
     def Cast_c(self, x):
+        """
+    Usage: x C
+
+    Returns x casted as a complex value
+        """
         return self.Cast(x, MPC)
 
     def Cast_t(self, x):
+        """
+    Usage: x T
+
+    Returns x casted as a Julian value
+        """
         return self.Cast(x, JUL)
 
     def Cast_v(self, x):
+        """
+    Usage: x V
+
+    Returns x casted as an interval value
+        """
         return self.Cast(x, MPI)
+
+    def ToDegrees(self, x):
+        """
+    Usage: x 2deg
+
+    Returns x converted from radians to degrees
+        """
+        if x == 0: return x
+        if isinstance(x, m.mpc):
+            raise ValueError("%sNot an appropriate operation for a complex number" % fln())
+        return degrees(x)
+
+    def ToRadians(self, x):
+        """
+    Usage: x 2rad
+
+    Returns x converted from degrees to radians
+        """
+        if x == 0: return x
+        if isinstance(x, m.mpc):
+            raise ValueError("%sNot an appropriate operation for a complex number" % fln())
+        return radians(x)
+
+    def ToUnix(self, x):
+        """
+    Usage: x unix
+
+    Returns x (which must be a Julian date) as a Unix timestamp
+        """
+        if not isinstance(x, Julian):
+            raise ValueError("%sThis function requires a Julian date (use T?)" % fln())
+        utc_offset = time.mktime(time.localtime()) - time.mktime(time.gmtime())
+        return (self.Cast_r(x-JULIAN_UNIX_EPOCH))*86400-utc_offset
+
+    def ToJulian(self, x):
+        """
+    Usage: x julian
+
+    Returns x (interpreted as a Unix timestamp) as a Julian date
+        """
+        utc_offset = time.mktime(time.localtime()) - time.mktime(time.gmtime())
+        return Julian((self.Cast_r(x)+utc_offset)/86400)+JULIAN_UNIX_EPOCH
+
+    def hr(self, x):
+        """
+    Usage: x hr
+
+    Convert hms to decimal hours
+        """
+        x = Convert(x, MPF)
+        hours = int(x)
+        x -= hours
+        x *= 100
+        minutes = int(x)
+        x -= minutes
+        x *= 100
+        return hours + minutes/mpf(60) + x/3600
+
+    def hms(self, x):
+        """
+    Usage: x hms
+
+    Convert decimal hours to hours.MMSSss
+        """
+        x = Convert(x, MPF)
+        hours = int(x)
+        x -= hours
+        x *= 60
+        minutes = int(x)
+        if minutes == 60:
+            hours += 1
+            minutes = 0
+        x -= minutes
+        seconds = 60*x
+        if seconds == 60:
+            minutes += 1
+            seconds = 0
+        if minutes == 60:
+            hours += 1
+            minutes = 0
+        return hours + minutes/mpf(100) + seconds/mpf(10000)
+
+    def ip(self, x):
+        """
+    Usage: x ip
+
+    Returns the integer part of x
+        """
+        if isint(x):
+            return x
+        return Convert(x, INT)
+
+    def Fp(self, x):
+        """
+    Usage: x fp
+
+    Returns the fractional part of x
+        """
+        if isint(x):
+            return m.mpf(0)
+        return Convert(x, MPF) - self.ip(x).value
+
+    def RealPart(self, x):
+        """
+    Usage: x rp
+
+    Returns the real part of complex number x
+        """
+        if isinstance(x, m.mpc):
+            return x.real
+        else:
+            return x
+
+    def ImagPart(self, x):
+        """
+    Usage: x ip
+
+    Returns the imaginary part of complex number x
+        """
+        if isinstance(x, m.mpc):
+            return x.imag
+        else:
+            return x
+
+    def numerator(self, x):
+        """
+    Usage: x numer
+
+    Returns the numerator of x (casted as a rational)
+        """
+        return Convert(x, RAT).n
+
+    def denominator(self, x):
+        """
+    Usage: x denom
+
+    Returns the denominator of x (casted as a rational)
+        """
+        return Convert(x, RAT).d
+
+    def split(self, x):
+        """
+    Usage: x split
+
+    Returns the respective parts of various compound numbers:
+    complex, rational, interval, Julian, vectors and floats
+        """
+        if isinstance(x, mpf):
+            return self.ip(x), self.Fp(x)
+        if isinstance(x, mpc):
+            return x.real, x.imag
+        elif isinstance(x, Rational):
+            return x.n, x.d
+        elif isinstance(x, ctx_iv.ivmpf):
+            return x.a, x.b
+        elif isinstance(x, Julian):
+            return x.value.a, x.value.b
+        else:
+            msg = "%sapart requires rational, complex, or interval number"
+            raise ValueError(msg % fln())
+
+    def ToIV(self, y, x):
+        """
+    Usage: y x iv
+
+    Convert to interval number [y,x]
+        """
+        if y > x:
+            msg = "%sy register must be <= x register"
+            raise ValueError(msg % fln())
+        y = Convert(y, MPF)
+        x = Convert(x, MPF)
+        return mpi(y, x)
+
+    def Chop(self, x):
+        """
+    Usage: x chop
+
+    Returns the the value of x as displayed
+        """
+        n = Number()
+        return n(self.Format(x).replace(" ", ""))
 
     def Prec(self, x):
         """
@@ -1776,7 +1811,17 @@ class Calculator(object):
         else:
             raise ValueError(msg % fln())
 
-    #---------------------------------------------------------------------------
+    ############################################################################
+    # Display modification functions
+    ############################################################################
+
+    def mixed(self, x):
+        if x != 0:
+            self.cfg["mixed_fractions"] = True
+            Rational.mixed = True
+        else:
+            self.cfg["mixed_fractions"] = False
+            Rational.mixed = False
 
     def Debug(self, x):
         if x != 0:
@@ -1999,11 +2044,83 @@ class Calculator(object):
         """
         self.cfg["angle_mode"] = "rad"
 
+    def Rationals(self, x):
+        '''Show rationals as rationals instead of decimals
+        '''
+        if x != 0:
+            self.cfg["no_rationals"] = True
+        else:
+            self.cfg["no_rationals"] = False
+
+    def ToggleDowncasting(self, x):
+        '''Toggle downcasting: if X, downcast floats to ints if precision permits
+        '''
+        if x != 0:
+            self.cfg["downcasting"] = True
+        else:
+            self.cfg["downcasting"] = False
+
+    #---------------------------------------------------------------------------
+    # Other functions
+
+    def Modulus(self, x):
+        '''Set up modulus arithmetic with X as the modulus (1 or 0 to cancel)
+        '''
+        if isinstance(x, m.mpc) or isinstance(x, m.mpi):
+            raise ValueError("%sModulus cannot be a complex or interval number" % fln())
+        if x == 0:
+            self.cfg["modulus"] = 1
+        else:
+            self.cfg["modulus"] = x
+        return None
+
+    def ClearRegisters(self):
+        self.registers = {}
+
+    def ShowConfig(self):
+        d = {True:"on", False:"off"}
+        per = d[self.cfg["persist"]]
+        st = str(self.cfg["stack_display"])
+        lw = self.cfg["line_width"]
+        mf = str(self.cfg["mixed_fractions"])
+        dc = d[self.cfg["downcasting"]]
+        sps = d[self.cfg["fp_show_plus_sign"]]
+        am = self.cfg["angle_mode"]
+        im = self.cfg["integer_mode"]
+        imm = self.cfg["imaginary_mode"]
+        sd = str(self.cfg["stack_display"])
+        fmt = self.cfg["fp_format"]
+        dig = str(self.cfg["fp_digits"])
+        ad = str(self.cfg["arg_digits"])
+        af = self.cfg["arg_format"]
+        pr = str(mp.dps)
+        br = d[self.cfg["brief"]]
+        nr = d[self.cfg["no_rationals"]]
+        cd = d[self.cfg["fp_comma_decorate"]]
+        adz = d[self.cfg["allow_divide_by_zero"]]
+        iv = self.cfg["iv_mode"]
+        cdiv = d[self.cfg["C_division"]]
+        dbg = d[get_debug()]
+        if 1:
+            s = '''Configuration:
+      Stack:%(st)s    Commas:%(cd)s   +sign:%(sps)s   Allow divide by zero:%(adz)s
+      iv%(iv)s    brief:%(br)s  C-type integer division:%(cdiv)s   Rationals:%(nr)s
+      Line width:%(lw)s    Mixed fractions:%(mf)s     Downcasting:%(dc)s
+      Complex numbers:  %(imm)s    arguments:%(af)s %(ad)s digits Debug:%(dbg)s
+      Display: %(fmt)s %(dig)s digits   prec:%(pr)s  Integers:%(im)s  Angles:%(am)s''' \
+        % locals()
+
+        self.display.msg(s)
+
     def brief(self, x):
         if x != 0:
             self.cfg["brief"] = True
         else:
             self.cfg["brief"] = False
+
+    ############################################################################
+    # End of callback functions
+    ############################################################################
 
     def Flatten(self, n=0):
         '''The top of the stack contains a sequence of values.  Remove them
@@ -2525,149 +2642,6 @@ class Calculator(object):
                 s += ("'%s' command has no helpinfo dictionary entry" % cmd) + nl
         if s: self.display.msg(s)
 
-    def ExecutedCommandOK(self, cmd, args, commands_dict):
-        '''command is the string containing the command to execute.  args
-        contains any alternative arguments for this command.  commands_dict is a
-        dictionary defining the dispatch function with other needed info.
-        Return True unless an exception occurred and a message already was
-        printed.
-        '''
-        if cmd[0] == " ":  cmd = cmd[1:]
-        if cmd not in commands_dict:
-            raise Exception("%sProgram bug:  bad command" % fln())
-        extra_dict = None
-        if len(commands_dict[cmd]) == 3:
-            func, num_stack_args, extra_dict = commands_dict[cmd]
-        else:
-            func, num_stack_args = commands_dict[cmd]
-        if len(commands_dict[cmd]) == 3:
-            extra_dict = commands_dict[cmd][2]
-        # Handle any pre-processing
-        if extra_dict and "pre" in extra_dict:
-                if len(extra_dict) == 2:
-                    prefunc, args = extra_dict["pre"]
-                    prefunc(args)
-                else:
-                    prefunc = extra_dict["pre"]
-                    prefunc()
-        if num_stack_args == 0:
-            try:
-                status = func()
-                # If you don't want the stack displayed after the function
-                # is called, have it return False.
-                if status == False:
-                    return False
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-        elif num_stack_args == 1:
-            # Unary function
-            try:
-                x = stack[0]
-                self.stack.lastx = x
-                if isinstance(x, Zn):
-                    if cmd == "abs":
-                        y = x.__abs__()
-                    else:
-                        x = int(x)
-                        y = func(x)
-                else:
-                    y = func(x)
-                self.stack.pop()
-                if y != None:
-                    if isint(y):
-                        y = Zn(y)
-                    self.stack.push(y)
-                    if isinstance(y, tuple) or isinstance(y, list):
-                        Flatten()
-            except KeyboardInterrupt:
-                self.display.msg("%sInterrupted" % fln())
-                return False
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-        elif num_stack_args == 2:
-            # Binary function
-            size = len(self.stack)
-            try:
-                x, y = stack[0], stack[1]
-                x1 = x
-                if isinstance(x, Zn): x = int(x)
-                if isinstance(y, Zn): y = int(y)
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-            try:
-                self.stack.pop()
-                self.stack.pop()
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                # Fix stack if corrupted
-                if len(self.stack) == size - 1:
-                    self.stack.append(x)
-                elif len(self.stack) == size - 2:
-                    self.stack.append(y)
-                    self.stack.append(x)
-                return False
-            try:
-                self.stack.lastx = x1
-                result = func(y, x)
-                if result != None:
-                    if isint(result):
-                        result = Zn(result)
-                    self.stack.push(result)
-            except KeyboardInterrupt:
-                self.display.msg("%sInterrupted" % fln())
-                return False
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-        elif num_stack_args == 'x':
-            # Binary function
-            size = len(self.stack)
-            n = 0
-            try:
-                n = stack[0]
-                n = int(n)
-                last = stack[n]
-            except:
-                self.display.msg("Not enonugh arguments")
-                return False
-            args = []
-            x1 = self.stack.pop()
-            try:
-                for i in range(n):
-                    x = self.stack.pop()
-                    if isinstance(x, Zn): x = int(x)
-                    args.append(x)
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-            try:
-                self.stack.lastx = x1
-                result = func(*args)
-                if result != None:
-                    if isint(result):
-                        result = Zn(result)
-                    self.stack.push(result)
-            except KeyboardInterrupt:
-                self.display.msg("%sInterrupted" % fln())
-                return False
-            except Exception, e:
-                self.display.msg("%s" % fln() + str(e))
-                return False
-        else:
-            raise Exception("%sProgram bug:  too many stack args" % fln())
-        # Handle any post-processing
-        if extra_dict and "post" in extra_dict:
-            if len(extra_dict) == 2:
-                postfunc, args = extra_dict["post"]
-                postfunc(args)
-            else:
-                postfunc = extra_dict["post"]
-                postfunc()
-        return True
-
     def GetRegisterName(self, cmd):
         cmd = strip(cmd)
         if len(cmd) < 2:
@@ -2939,179 +2913,6 @@ class Calculator(object):
             return status_ok_no_display
         return status
 
-    def ProcessSpecialCommand(self, cmd, commands_dict):
-        '''This function is for commands that don't fit the general pattern or
-        are just easiest to implement here.  We return either status_ok,
-        status_ok_no_display, status_error, or status_unknown_command
-        or status_quit.
-        '''
-        if cmd[0] == "?":
-            Help(cmd, commands_dict)
-            return status_ok_no_display
-        elif len(cmd) >= 3 and cmd[:3] == "int":
-            Int(cmd)
-        elif len(cmd) >= 4 and cmd[:4] == "uint":
-            Uint(cmd)
-        elif (len(cmd) == 1 and cmd == "!") or \
-             (len(cmd) > 1 and cmd[0] == "!" and cmd[1] != "="):
-            Bang(cmd)
-        elif len(cmd) > 1 and cmd[0] == "<" and cmd[1] != "<" and cmd[1] != "=":
-            return RecallRegister(cmd)
-        elif len(cmd) > 1 and cmd[0] == ">" and cmd[1] != ">" and cmd[1] != "=":
-            return StoreRegister(cmd)
-        elif len(cmd) > 2 and cmd[0] == ">" and cmd[1] == ">":
-            Tee(cmd)
-        elif len(cmd) > 2 and cmd[0] == "<" and cmd[1] == "<":
-            return ReadInputFromFile(cmd, commands_dict)
-        elif cmd == ">>.":
-            TeeOff()
-        elif cmd == "fix":
-            self.cfg["fp_format"] = "fix"
-        elif cmd == "sig":
-            self.cfg["fp_format"] = "sig"
-        elif cmd == "sci":
-            self.cfg["fp_format"] = "sci"
-        elif cmd == "eng":
-            self.cfg["fp_format"] = "eng"
-        elif cmd == "engsi":
-            self.cfg["fp_format"] = "engsi"
-        elif cmd == "none":
-            self.cfg["fp_format"] = "none"
-        elif cmd == "dec":
-            self.cfg["integer_mode"] = "dec"
-        elif cmd == "hex":
-            self.cfg["integer_mode"] = "hex"
-        elif cmd == "oct":
-            self.cfg["integer_mode"] = "oct"
-        elif cmd == "bin":
-            self.cfg["integer_mode"] = "bin"
-        elif cmd == "ip":
-            self.cfg["integer_mode"] = "ip"
-        elif cmd == "iva":
-            self.cfg["iv_mode"] = "a"
-            Julian.interval_representation = "a"
-        elif cmd == "ivb":
-            self.cfg["iv_mode"] = "b"
-            Julian.interval_representation = "b"
-        elif cmd == "ivc":
-            self.cfg["iv_mode"] = "c"
-            Julian.interval_representation = "c"
-        elif cmd == "on":
-            self.display.on()
-            return status_ok_no_display
-        elif cmd == "off":
-            self.display.off()
-            return status_ok_no_display
-        elif cmd == "eps":
-            self.stack.push(eps)
-        elif cmd == "deg":
-            self.cfg["angle_mode"] = "deg"
-        elif cmd == "rad":
-            self.cfg["angle_mode"] = "rad"
-        elif cmd == "prst" or cmd == ".":
-            if len(self.stack) > 0:
-                self.display.msg(self.stack._string(self.Format))
-                if self.cfg["modulus"] != 1:
-                    self.display.msg(" (mod " + self.Format(self.cfg["modulus"])+ ")")
-                return status_ok_no_display
-        else:
-            return status_unknown_command
-        return status_ok
-
-    def ProcessCommand(self, cmd, commands_dict, last_command):
-        '''Decode cmd and execute it as appropriate.  commands_dict maps
-        commands to actions.  If last_command is true, then the stack should
-        be printed when finished.  Our return values are coded as follows:
-            status_ok       Everything fine
-            status_quit     Received a quit command
-            status_error    A command resulted in an error
-            status_interrupted  The processing was interrupted
-        otherwise return false.
-        '''
-        c, n, x = CommandDecode(commands_dict), Number(), ""
-        if self.tee_is_on:
-            self.display.log(cmd)
-        try:
-            # We need to fully expand special commands like 'bi' here,
-            # which will become 'bin', yet need to be processed by
-            # ProcessSpecialCommand().
-            x = c.identify_cmd(cmd)
-            if isinstance(x, type("")):
-                status = ProcessSpecialCommand(x, commands_dict)
-            else:
-                status = ProcessSpecialCommand(cmd, commands_dict)
-        except Exception, e:
-            self.display.msg("%s" % fln() + str(e))
-            return status_error
-        ok = False
-        if status == status_ok:
-            ok = True
-        elif status == status_ok_no_display:
-            return status_ok
-        if status == status_unknown_command:
-            # First check to see if we have a number.  However, 'I' will be
-            # ignored, as it's a command to cast to complex.
-            ok = False
-            if cmd != "I" and \
-               cmd != "T" and \
-               cmd != "im" and \
-               cmd != "ip" and \
-               cmd != "in":
-                try:
-                    num = n(cmd)
-                    if num != None:
-                        self.stack.push(num)
-                        ok = True
-                except Exception, e:
-                    self.display.msg("%s" % fln() + str(e))
-                    return status_error
-            # Handle the help command with an argument specially
-            if not ok and len(cmd) > 1 and cmd[0] == "?":
-                Help(commands_dict, cmd[1:])
-                ok = True
-            # The apostrophe is another special command
-            if not ok and len(cmd) == 2 and cmd[0] == "'":
-                self.stack.push(ord(cmd[1]))
-                ok = True
-            # Now see if we can identify this command
-            if not ok:
-                x = c.identify_cmd(cmd)
-                if isinstance(x, type("")):
-                    try:
-                        ok = ExecutedCommandOK(x, arg, commands_dict)
-                        if self.cfg["modulus"] != 1:
-                            if len(self.stack):
-                                y = self.Mod(stack[0], self.cfg["modulus"])
-                                self.stack.pop()
-                                self.stack.push(y)
-                    except KeyboardInterrupt:
-                        self.display.msg("%sProcessing interrupted" % fln())
-                        return status_interrupted
-                    except Exception, e:
-                        self.display.msg("%sUnexpected exception:\n" % fln() + str(e))
-                        return status_error
-                elif isinstance(x, type([])):  # It was an ambiguous command
-                    x.sort()
-                    self.display.msg("Ambiguous: " + ' '.join(x))
-                    return status_error
-                else:  # Dunno
-                    self.display.msg("Command '%s' not recognized" % cmd)
-                    return status_error
-            if x == "quit":
-                return status_quit
-        if ok and last_command:
-            if len(self.stack):
-                try:
-                    y = self.DownCast(self.stack.pop())
-                    self.stack.push(y)
-                except Exception, e:
-                    self.display.msg("%sDowncast failed:  " % fln() + str(e))
-                self.DisplayStack()
-            else:
-                #self.display.msg("Stack is empty")
-                pass
-            return status_ok
-
     def cleanup(self):
         readline.write_history_file(os.path.expanduser('~')+'/.pycalc/history')
 
@@ -3139,35 +2940,6 @@ class Calculator(object):
     def pop(self):
         return self.stack.pop()
 
-    def peek(self):
-        return self.stack[len(self.stack)-1]
-
-    def GetLineOfInput(self, stream=None):
-        #
-        if stream:
-            s = stream.readline()
-        elif self.process_stdin:
-            s = sys.stdin.readline()
-        else:
-            s = raw_input(self.cfg["prompt"])
-        # Log the line received
-        if s and s[-1] == nl:
-            self.display.log('--> "%s"' % s, suppress_nl=True)
-        else:
-            self.display.log('--> "%s"' % s)
-        if s == "":
-            s = self.eof
-            self.stdin_finished = True
-        else:
-            s = strip(s)
-        pos = s.find("#")  # Delete comments
-        if pos != -1:
-            s = s[:pos]
-            if pos == 0:
-                # This line was nothing but a comment
-                return self.comment_line
-        return s
-
     def read_line(self, stream=None):
         if stream:
             s = stream.readline()
@@ -3181,6 +2953,16 @@ class Calculator(object):
                 sys.exit()
         # it looks like readline automatically adds stuff to history
         #readline.add_history(line)
+        if line and line[-1] == nl:
+            self.display.log('--> "%s"' % line, suppress_nl=True)
+        else:
+            self.display.log('--> "%s"' % line)
+        pos = line.find("#")  # Delete comments
+        if pos != -1:
+            line = line[:pos]
+            if pos == 0:
+                # This line was nothing but a comment
+                return ''
         return line
 
     def chomp(self, line):
@@ -3229,10 +3011,13 @@ class Calculator(object):
                     elif arg in self.commands_dict:
                         args = self.prepare_args(self.commands_dict[arg][1])
                         retval = self.commands_dict[arg][0](*args)
-                        if retval is not None:
-                            if isint(retval):
-                                retval = Zn(retval)
-                            self.push(retval)
+                        if not isinstance(retval, tuple):
+                            retval = (retval,)
+                        for v in retval:
+                            if v is not None:
+                                if isint(v):
+                                    v = Zn(v)
+                                self.push(v)
                     elif arg in self.constants:
                         self.push(self.constants[arg])
                     # these are the base tokens for functions and constants
@@ -3335,10 +3120,6 @@ class Calculator(object):
         """
         print """
 parse vector [2 3]
-raise numbers to non-integer powers
-raise complex numbers to a power
-raise numbers to a complex power
-sin/cos/tan of complex numbers seems to give the wrong answer
 parsing of things that should break
     dup23
         """
@@ -3365,18 +3146,16 @@ def ParseCommandLine():
     parser.add_option("-c", "--run-checks", action="store_true", help=c)
     parser.add_option("-d", "--default-config", action="store_true", help=d)
     parser.add_option("-s", "--read-stdin", action="store_true", help=s)
-    parser.add_option("-r", "--read-file", metavar="file", action="store_true", help=r)
+    parser.add_option("-r", "--read-file", dest="file", help=r)
     parser.add_option("-t", "--testing-mode", action="store_true", help=t)
     parser.add_option("-v", "--version", action="store_true", help=v)
     return parser.parse_args(args=None, values=None)
 
 def main(argv):
-    if len(argv) > 1:
-        opts, args = ParseCommandLine()
-        print opts, args
     finished = False
     status = None
-    calculator = Calculator()
+    opt, arg = ParseCommandLine()
+    calculator = Calculator(arg, opt)
     try:
         calculator.run()
     except KeyboardInterrupt, e:

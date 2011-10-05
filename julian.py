@@ -9,7 +9,7 @@ The representation is based on the algorithms given in "Astronomical
 Algorithms", 2nd ed., by Jean Meeus, Willman-Bell, Inc., 1998.
 '''
 
-from mpmath import mpf, mpi, mpc, mp
+from mpmath import mpf, mpi, mpc, mp, ctx_iv
 from rational import Rational
 from integer import Zn
 from time import localtime, strftime
@@ -117,7 +117,9 @@ class Julian(object):
             self.value = mpf(int(s))
         elif isinstance(s, Rational):
             self.value = mpf(s.n)/mpf(s.d)
-        elif isinstance(s, mpf) or isinstance(s, mpi):
+        elif isinstance(s, mpf):
+            self.value = s
+        elif isinstance(s, ctx_iv.ivmpf):
             self.value = s
         elif isinstance(s, StringTypes):
             y, M, d, h, m, s = self._convert_string(s.strip())
@@ -449,7 +451,7 @@ class Julian(object):
         if self.value == inf: return "Julian(inf)"
         if self.value == -inf: return "Julian(-inf)"
         val = self.value - Julian.day_offset
-        if isinstance(val, mpi):
+        if isinstance(val, ctx_iv.ivmpf):
             if Julian.interval_representation == "a":
                 a = self._st(val.mid)
                 b = self._units(val.delta/mpf("2"))
@@ -479,7 +481,7 @@ class Julian(object):
             return n.mpf()
         elif isinstance(n, mpc):
             return abs(n)
-        elif isinstance(n, mpf) or isinstance(n, mpi):
+        elif isinstance(n, mpf) or isinstance(n, ctx_iv.ivmpf):
             return n
         elif isinstance(n, Julian):
             return n.value
@@ -507,7 +509,7 @@ class Julian(object):
     def __int__(self):
         if isinstance(self.value, mpf):
             return int(self.value)
-        elif isinstance(self.value, mpi):
+        elif isinstance(self.value, ctx_iv.ivmpf):
             return int(self.value.mid)
         else:
             raise Exception("%sProgram bug:  unknown type" % fln())
@@ -517,7 +519,7 @@ class Julian(object):
     def to_mpf(self):
         if isinstance(self.value, mpf):
             return self.value
-        elif isinstance(self.value, mpi):
+        elif isinstance(self.value, ctx_iv.ivmpf):
             return self.value.mid
         else:
             raise Exception("%sProgram bug:  unknown type" % fln())

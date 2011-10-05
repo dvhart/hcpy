@@ -130,6 +130,8 @@ ip6 = re.compile(r"""
     ^(:(:[0-9a-f]{1,4}){1,5}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$
 """, re.X | re.I)
 
+vector = re.compile(r"\[\s*([.0])")
+
 class Number(object):
     '''Used to generate a number object from a string.
     '''
@@ -214,6 +216,15 @@ class Number(object):
             pass
         except Exception:
             raise
+        return None
+
+    def A(self, s):
+        # is this is an array
+
+        return None
+
+    def V(self, s):
+        # is this is a vector
         return None
 
     def ip(self, s):
