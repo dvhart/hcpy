@@ -36,12 +36,6 @@ from rational import Rational
 from convert import *
 from debug import *
 
-# Exceptions for the Stack class
-class CalcException(Exception):          pass
-class StackIsEmpty(CalcException):       pass
-class NotEnoughArguments(CalcException): pass
-class FunctionFailed(CalcException):     pass
-
 class Stack(object):
     '''This object provides a stack and is intended to be used as an RPN
     calculator.  The minimum functionality is present, however.  You, the
@@ -70,47 +64,9 @@ class Stack(object):
         '''
         self.stack = []
 
-    def unary(self, function, arg_type=None):
-        '''Apply the function to the object on the top of the stack and
-        replace the top of the stack with the result.  arg_type is used to
-        change the stack element to the indicated type before calling the
-        function.
-        '''
-        if not self.stack:
-            raise NotEnoughArguments("%s" % fln())
-        try:
-            x = self.stack[-1]
-            if arg_type:
-                x = Convert(x, arg_type)
-            result = function(x)
-            self.stack[-1] = result
-        except Exception, e:
-            raise FunctionFailed("%s" % fln() + str(e))
-
-    def binary(self, function, arg1_type=None, arg2_type=None):
-        '''Apply the function to the two objects on the top of the stack
-        and replace the two top of stack objects with the result.  Note
-        that the next-to-top element of the stack is the first argument
-        of the function call -- this is consistent with e.g. typical
-        HP RPN calculators.  The arg_types are used to change the type
-        of the object before the function call.
-        '''
-        if len(self.stack) < 2:
-            raise NotEnoughArguments("%s" % fln())
-        try:
-            x = self.stack[-1]
-            if arg1_type: x = Convert(x, arg1_type)
-            y = self.stack[-2]
-            if arg2_type: y = Convert(y, arg2_type)
-            result = function(y, x)
-            del self.stack[-2:]
-            self.stack.append(result)
-        except Exception, e:
-            raise FunctionFailed("%s" % fln() + str(e))
-
     def swap(self):
         if len(self.stack) < 2:
-            raise NotEnoughArguments("%s" % fln())
+            raise IndexError("%s" % fln())
         self.stack[-1], self.stack[-2] = self.stack[-2], self.stack[-1]
 
     def __len__(self):
@@ -123,7 +79,7 @@ class Stack(object):
         if self.stack:
             return self.stack.pop(-1)
         else:
-            raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to pop)")
+            raise IndexError("%s" % fln() + "Stack is empty (tried to pop)")
 
     def roll(self, end):
         if self.stack:
@@ -136,7 +92,7 @@ class Stack(object):
                 tail = self.stack.pop(end)
                 self.stack = [tail] + self.stack
         else:
-            raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to roll)")
+            raise IndexError("%s" % fln() + "Stack is empty (tried to roll)")
 
     def clear_stack(self):
         self.stack = []
@@ -144,7 +100,7 @@ class Stack(object):
     def __setitem__(self, i, value):
         # i = 0 is top of stack
         if len(self.stack) == 0:
-            raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to set item %d)" % i)
+            raise IndexError("%s" % fln() + "Stack is empty (tried to set item %d)" % i)
         if i < 0 or i >= len(self.stack) - 1:
             raise IndexError("%s" % fln() + "Stack size is %d" % len(self.stack))
         self.stack[len(self.stack) - 1 - i] = value
@@ -153,7 +109,7 @@ class Stack(object):
         # i = 0 is top of stack
         n = len(self.stack)
         if n == 0:
-            raise StackIsEmpty("%s" % fln() + "Stack is empty (tried to get item %d)" % i)
+            raise IndexError("%s" % fln() + "Stack is empty (tried to get item %d)" % i)
         if i < 0 or i >= n:
             raise IndexError("%s" % fln() + "Stack size is smaller than %d" % (n+1))
         return self.stack[n - 1 - i]

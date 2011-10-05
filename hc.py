@@ -115,6 +115,7 @@ def isint(x):
 
 class Calculator(object):
     def __init__(self, arguments, options):
+        self.errors = []
         self.stack = Stack()
         self.stack_index = True
         self.constants = {}
@@ -166,6 +167,8 @@ class Calculator(object):
             ">="       : [self.GreaterThanEqual, 2], # True if x >= y
             "="        : [self.DisplayEqual, 2],  # True if displayed strings of x & y are equal
             "iv"       : [self.ToIV, 2],   # Convert to [y,x] interval number
+            "gcf"      : [self.gcf, 2],  # find the greatest common factor
+            "lcd"      : [self.lcd, 2],  # find the lowest common denominator
 
             # Unary functions
             "I"        : [self.Cast_i, 1],  # Convert to integer
@@ -1512,7 +1515,7 @@ class Calculator(object):
 
     Duplicates the bottom item on the stack
         """
-        return [ x, x ]
+        return x, x
 
     def dup2(self, y, x):
         """
@@ -1520,7 +1523,7 @@ class Calculator(object):
 
     Duplicates the bottom two items on the stack
         """
-        return [ y, x, y, x ]
+        return y, x, y, x
 
     def dupn(self, *args):
         """
@@ -1763,18 +1766,18 @@ class Calculator(object):
     complex, rational, interval, Julian, vectors and floats
         """
         if isinstance(x, mpf):
-            return [ self.ip(x), self.Fp(x) ]
+            return self.ip(x), self.Fp(x)
         if isinstance(x, mpc):
-            return [ x.real, x.imag ]
+            return x.real, x.imag
         elif isinstance(x, Rational):
-            return [ x.n, x.d ]
+            return x.n, x.d
         elif isinstance(x, ctx_iv.ivmpf):
-            return [ mpf(x.a), mpf(x.b) ]
+            return mpf(x.a), mpf(x.b)
         elif isinstance(x, Julian):
-            return [ mpf(x.value.a), mpf(x.value.b) ]
+            return mpf(x.value.a), mpf(x.value.b)
         else:
             msg = "%sapart requires rational, complex, or interval number"
-            raise ValueError(msg % fln())
+            raise TypeError(msg % fln())
 
     def ToIV(self, y, x):
         """
@@ -1783,11 +1786,37 @@ class Calculator(object):
     Convert to interval number [y,x]
         """
         if y > x:
-            msg = "%sy register must be <= x register"
+            msg = "%sy must be <= x"
             raise ValueError(msg % fln())
         y = Convert(y, MPF)
         x = Convert(x, MPF)
         return mpi(y, x)
+
+    def gcf(self, y, x):
+        """
+    Usage: y x gcf
+
+    Returns the greatest common factor of x and y
+        """
+        def subgcf(a, b):
+            if b == 0: return a
+            return subgcf(b, a % b)
+
+        if not isint(x) or not isint(y):
+            raise TypeError("operands to gcf must be integers")
+        if y > x:
+            return subgcf(y, x)
+        return subgcf(x, y)
+
+    def lcd(self, y, x):
+        """
+    Usage: y x lcd
+
+    Returns the lowest common denominator of x and y
+        """
+        if not isint(x) or not isint(y):
+            raise TypeError("operands to lcd must be integers")
+        return self.multiply(y, x)/self.gcf(y, x)
 
     def Chop(self, x):
         """
@@ -2351,9 +2380,14 @@ class Calculator(object):
     def DisplayStack(self):
         size = self.cfg["stack_display"]
         assert size >= 0 and isint(size)
-        self.display.msg(self.stack._string(self.Format, size))
+        stack = self.stack._string(self.Format, size)
+        if len(stack) > 0:
+            self.display.msg(stack)
         if self.cfg["modulus"] != 1:
             self.display.msg(" (mod " + self.Format(self.cfg["modulus"])+ ")")
+        if len(self.errors) > 0:
+            self.display.msg("\n".join(self.errors))
+            self.errors = []
 
     def EllipsizeString(self, s, desired_length, ellipsis):
         '''Remove characters out of the middle of s until the length of s
@@ -2570,7 +2604,8 @@ class Calculator(object):
         elif isinstance(x, Julian):
             return str(x)
         else:
-            raise Exception("%sError in Format():  Unknown number format" % fln())
+            self.errors.append("%sError in Format():  Unknown number format" % fln())
+            return str(x)
         return s
 
     def WriteList(self, filename, name, list):
@@ -2874,13 +2909,22 @@ class Calculator(object):
             #line = line[next:]
             success, taglist, next = TextTools.tag(line, self.parser)
 
-    def prepare_args(self, n):
+    def prepare_args(self, fn, n):
         args = []
+        v = None
         if n == 'x':
-            n = int(self.pop())
+            v = self.pop()
+            n = int(v)
         #print "stack size is %d"%len(self.stack)
-        if n > len(self.stack):
-            raise IndexError("Looking for %d args" % n)
+        l = len(self.stack)
+        if n > l:
+            if v is not None:
+                self.push(v)
+                raise IndexError("'%d %s' requires 1+%d args (stack size is %d)" %
+                    (n, fn, n, l+1))
+            else:
+                raise IndexError("'%s' requires %d args (stack size is %d)" %
+                    (fn, n, l))
         for i in range(n):
             val = self.pop()
             if isinstance(val, Zn): val = int(val)
@@ -2888,6 +2932,7 @@ class Calculator(object):
         return args
 
     def run(self):
+        isiterable = lambda obj: getattr(obj, '__iter__', False)
         NGen = Number()
         cints = regex.compile(r"[su][0-9]+")
         while True:
@@ -2899,9 +2944,17 @@ class Calculator(object):
                         self.commands_dict['help'][0](line)
                         break
                     elif arg in self.commands_dict:
-                        args = self.prepare_args(self.commands_dict[arg][1])
-                        retval = self.commands_dict[arg][0](*args)
-                        if not isinstance(retval, list):
+                        try:
+                            args = self.prepare_args(arg, self.commands_dict[arg][1])
+                            try:
+                                retval = self.commands_dict[arg][0](*args)
+                            except (ValueError, TypeError), e:
+                                self.errors.append(str(e))
+                                retval = args
+                        except IndexError, e:
+                            self.errors.append(str(e))
+                            continue
+                        if not isiterable(retval):
                             retval = [retval]
                         for v in retval:
                             if v is not None:
