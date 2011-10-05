@@ -72,7 +72,6 @@ from convert import *
 from cmddecod import CommandDecode
 from stack import Stack
 from number import Number
-from helpinfo import helpinfo
 from mpformat import mpFormat
 from integer import Zn
 from julian import Julian
