@@ -98,6 +98,12 @@ JULIAN_UNIX_EPOCH = Julian("1Jan1970:00:00:00")
 class ParseError(Exception):
     pass
 
+def nop(*args):
+    """
+    unimplimented
+    """
+    return None
+
 def _functionId(nFramesUp=0):
     """ Create a string naming the function n frames up on the stack.
     """
@@ -254,15 +260,21 @@ class Calculator(object):
             "depth"    : [self.depth, 0],  # Push stack depth onto stack
 
             # constants
+            "phi"      : [self.Phi, 0],   # Golden ratio
             "pi"       : [self.Pi, 0],
             "e"        : [self.E, 0],
-            "i"        : [self.imaginary, 0],
-            "j"        : [self.imaginary, 0],
+            "i"        : [self.I, 0],
+            "j"        : [self.I, 0],
 
             # network functions
             # same net - 3 args -- 2 ips and a netmask
             # broadcast - 2 args - ip and a netmask
             # net match
+            "le"       : [nop, 0],  # set little-endian integer mode
+            "be"       : [nop, 0],  # set big-endian integer mode
+            "htonl"    : [nop, 1],  # return htonl x
+            "ntohl"    : [nop, 1],  # return ntohl x
+            "=net"     : [nop, 3],  # check to see if z and y are on same subnet x
 
             # Other stuff
             "?"        : [self.help, 0],  # Help command
@@ -270,14 +282,10 @@ class Calculator(object):
             "quit"     : [self.quit, 0],  # Exit the program
             "deg"      : [self.deg, 0],  # Set degrees for angle mode
             "rad"      : [self.rad, 0],  # Set radians for angle mode
-            "ec"       : [self.EditConfiguration, 0],
-            "es"       : [self.EditStack, 0],
-            "er"       : [self.EditRegisters, 0],
-            "prr"      : [self.PrintRegisters, 0],
+            "regs"     : [self.PrintRegisters, 0],
             "cfg"      : [self.ShowConfig, 0], # Show configuration
             "modulo"   : [self.Modulus, 1], # All answers displayed with this modulus
             "clrg"     : [self.ClearRegisters, 0],
-            "phi"      : [self.Phi, 0],   # Golden ratio
             ">>."      : [self.display.logoff, 0],  # Turn off logging
 
             # Display functions
@@ -404,7 +412,6 @@ class Calculator(object):
             traceback.print_exception(type, value, tb, None, sys.stdout)
         self.chomppre = regex.compile(r"^\s*")
         self.chomppost = regex.compile(r"\s*$")
-        self.check_help()
 
         #---------------------------------------------------------------------------
         #---------------------------------------------------------------------------
@@ -590,15 +597,6 @@ class Calculator(object):
 
     #---------------------------------------------------------------------------
     # Utility functions
-
-    def check_help(self):
-        method = regex.compile(r"<bound method [_a-z][_a-z0-9]*[.]([^ ]*) of .*", regex.I)
-        undocumented = []
-        for f in self.commands_dict.keys():
-            if self.commands_dict[f][0].__doc__ is None:
-                name = method.match(self.commands_dict[f][0].__str__()).groups()[0]
-                undocumented.append(name)
-        print "undocumented functions: %s" % ' '.join(undocumented)
 
     def use_modular_arithmetic(self, x, y):
         return (isint(x) and isint(y) and abs(self.cfg["modulus"]) > 1)
@@ -881,6 +879,11 @@ class Calculator(object):
     # Unary functions
 
     def reciprocal(self, x):
+        """
+    Usage: x inv
+
+    Returns the reciprocal of x (1/x)
+        """
         if x == 0:
             if self.cfg["allow_divide_by_zero"]:
                 return inf
@@ -893,9 +896,19 @@ class Calculator(object):
         return m.mpf(1)/x
 
     def bit_negate(self, x):
+        """
+    Usage: x ~
+
+    Returns the bit-negated version of x (x gets cast to an int)
+        """
         return ~Convert(x, INT)
 
     def negate(self, x):
+        """
+    Usage: x neg
+
+    Returns negative x (-(x))
+        """
         return -x
 
     def conj(self, x):
@@ -1251,7 +1264,7 @@ class Calculator(object):
 
     def exp(self, x, y):
         """
-    Usage: x ^ | x exp
+    Usage: x exp
 
     Returns e raised to the power of top item on the stack (e^x)
         """
@@ -1274,9 +1287,19 @@ class Calculator(object):
         return m.arg(x)
 
     def gamma(self, x):
+        """
+    Usage: x gamma
+
+    Returns the gamma function at x
+        """
         return m.gamma(x)
 
     def zeta(self, x):
+        """
+    Usage: x zeta
+
+    Returns the zeta function at x
+        """
         return m.zeta(x)
 
     def Ncdf(self, x):
@@ -1329,16 +1352,35 @@ class Calculator(object):
     ############################################################################
 
     def Phi(self):
+        """
+    Usage: phi
 
+    Returns Phi (the golden ratio)
+        """
         return m.mpf(m.phi)
 
     def Pi(self):
+        """
+    Usage: pi
+
+    Returns Pi
+        """
         return m.mpf(m.mp.pi)
 
     def E(self):
+        """
+    Usage: e
+
+    Returns e
+        """
         return m.mpf(m.mp.e)
 
-    def imaginary(self):
+    def I(self):
+        """
+    Usage: i (or j)
+
+    Returns i (or j, depending on how you see it)
+        """
         return m.mpc(0,1)
 
     ############################################################################
@@ -1599,6 +1641,8 @@ class Calculator(object):
         if not isinstance(x, Julian):
             raise ValueError("%sThis function requires a Julian date (use T?)" % fln())
         utc_offset = time.mktime(time.localtime()) - time.mktime(time.gmtime())
+        if time.daylight:
+            utc_offset += 3600
         return (self.Cast_r(x-JULIAN_UNIX_EPOCH))*86400-utc_offset
 
     def ToJulian(self, x):
@@ -1608,6 +1652,8 @@ class Calculator(object):
     Returns x (interpreted as a Unix timestamp) as a Julian date
         """
         utc_offset = time.mktime(time.localtime()) - time.mktime(time.gmtime())
+        if time.daylight:
+            utc_offset += 3600
         return Julian((self.Cast_r(x)+utc_offset)/86400)+JULIAN_UNIX_EPOCH
 
     def hr(self, x):
@@ -1835,6 +1881,11 @@ class Calculator(object):
     ############################################################################
 
     def mixed(self, x):
+        """
+    Usage: x mixed
+
+    Show the rationals as mixed fractions or not
+        """
         if x != 0:
             self.cfg["mixed_fractions"] = True
             Rational.mixed = True
@@ -1843,6 +1894,11 @@ class Calculator(object):
             Rational.mixed = False
 
     def Debug(self, x):
+        """
+    Usage: x debug
+
+    Set or clear the debug flag based on x
+        """
         if x != 0:
             toggle_debug(True)
         else:
@@ -1850,7 +1906,7 @@ class Calculator(object):
 
     def Show(self):
         """
-    Usage: show
+    Usage: x show
 
     Show the full precision of the bottom value on the stack
         """
@@ -2111,6 +2167,11 @@ class Calculator(object):
         self.registers = {}
 
     def ShowConfig(self):
+        """
+    Usage: cfg
+
+    Shows the current config
+        """
         d = {True:"on", False:"off"}
         per = d[self.cfg["persist"]]
         st = str(self.cfg["stack_display"])
@@ -2146,6 +2207,11 @@ class Calculator(object):
         self.display.msg(s)
 
     def brief(self, x):
+        """
+    Usage: x brief
+
+    Set display to truncate long numbers to one line (shown with ...)
+        """
         if x != 0:
             self.cfg["brief"] = True
         else:
@@ -2545,79 +2611,12 @@ class Calculator(object):
             self.display.msg(msg)
             raise
 
-    def EditDictionary(self, name, dictionary):
-        if not self.cfg["editor"]:
-            raise RuntimeError("%sEditor is not defined in configuration" % fln())
-        if not self.cfg["tempfile"]:
-            filename = mkstemp(prefix="hctemp")
-        else:
-            filename = self.cfg["tempfile"]
-        try:
-            WriteDictionary(self.cfg["tempfile"], name, dictionary)
-        except:
-            self.display.msg("%sUnable to edit dictionary '%s'" % (fln(), name))
-            return False
-        # Open the file in the editor
-        cmd = self.cfg["editor"] + " " + filename
-        os.system(cmd)  # We use the os.system command because it blocks
-        # Execute the new file
-        newdict = {}
-        try:
-            execfile(filename, newdict)
-        except Exception, e:
-            msg = "%sError trying to read in the modified dictionary:" % fln() \
-                  + nl + str(e)
-            self.display.msg(msg)
-            return False
-        dictionary.clear()
-        dictionary.update(newdict[name])
-        # Remove the temporary file if it's not set in cfg
-        if not self.cfg["tempfile"]:
-            os.remove(filename)
-        return True
-
-    def EditConfiguration(self):
-        if EditDictionary("cfg", self.cfg):
-            self.ConfigChanged()
-
-    def EditStack(self):
-        if not self.cfg["editor"]:
-            raise RuntimeError("%sEditor is not defined in configuration" % fln())
-        if not self.cfg["tempfile"]:
-            filename = mkstemp(prefix="hctemp")
-        else:
-            filename = self.cfg["tempfile"]
-        name = "mystack"
-        self.fp = open(filename, "wb")
-        p = self.fp.write
-        p("from mpmath import *" + nl + nl)
-        p("mp.dps = " + str(mp.dps) + nl + nl)
-        p(name + " = [" + nl)
-        indent = "  "
-        for item in self.stack.stack:
-            p(indent + repr(item) + "," + nl)
-        p("]" + nl)
-        self.fp.close()
-        # Open the file in the editor
-        cmd = self.cfg["editor"] + " " + filename
-        os.system(cmd)  # We use the os.system command because it blocks
-        # Execute the new file
-        newdict = {}
-        try:
-            execfile(filename, newdict)
-        except Exception, e:
-            msg = "%sError trying to read in the modified stack:" % fln() + nl + str(e)
-            self.display.msg(msg)
-            return
-        self.stack.stack = newdict[name]
-        # Remove the temporary file if it's not set in cfg
-        if not self.cfg["tempfile"]:
-            os.remove(filename)
-
-    def EditRegisters(self):
-        EditDictionary("registers", self.registers)
-
     def PrintRegisters(self):
+        """
+    Usage: regs
+
+    Displays the contents of the registers
+        """
         if not self.registers:
             raise ValueError("%sThere are no registers defined" % fln())
         names = self.registers.keys()
@@ -2660,15 +2659,14 @@ class Calculator(object):
         '''
         if not self.run_checks:  return
         # Look for commands that don't have associated help strings
-        s = ""
-        for cmd in self.commands_dict:
-            if cmd[0] == " ":  cmd = cmd[1:]
-            if cmd in helpinfo:
-                if len(helpinfo[cmd]) == 0:
-                    s += ("'%s' command missing help string" % cmd) + nl
-            else:
-                s += ("'%s' command has no helpinfo dictionary entry" % cmd) + nl
-        if s: self.display.msg(s)
+        method = regex.compile(r"<bound method [_a-z][_a-z0-9]*[.]([^ ]*) of .*", regex.I)
+        undocumented = []
+        for f in self.commands_dict.keys():
+            if self.commands_dict[f][0].__doc__ is None:
+                name = method.match(self.commands_dict[f][0].__str__()).groups()[0]
+                undocumented.append(name)
+        if len(undocumented):
+            print "undocumented functions: %s" % ' '.join(undocumented)
 
     def GetRegisterName(self, cmd):
         cmd = strip(cmd)
@@ -2689,14 +2687,6 @@ class Calculator(object):
             raise Exception("%sStack is empty" % fln())
         self.registers[name] = stack[0]
         return status_ok
-
-    def EditXRegister(self):
-        try:
-            d = {"x":stack[0]}
-            EditDictionary("x_register", d)
-            stack[0] = d["x"]
-        except Exception, e:
-            raise Exception("%sCouldn't edit x" % fln())
 
     def C_int(self, cmd, val):
         try:
@@ -2819,6 +2809,7 @@ class Calculator(object):
         return result
 
     def cleanup(self):
+        self.SaveConfiguration()
         readline.write_history_file(os.path.expanduser('~')+'/.pycalc/history')
 
     def push(self, val):
@@ -2983,7 +2974,9 @@ class Calculator(object):
                 printed = 0
         print "\n"
         print "Delimiters are space, tab, and newline.\n"
-        desired_functions = [ 'abs', 'acos', 'acosh', 'arg', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'cbrt', 'ceil', 'char', 'chs', 'cosh', 'deg', 'depth', 'div', 'erf', 'erfc', 'expm', 'fact', 'floor', 'gcd', 'hypot', 'ip', 'j0', 'j1', 'jn', 'ld', 'ldb', 'lg', 'lgamma', 'lnp1', 'over', 'pick', 'pop', 'push', 'rad', 'rand', 'rdz', 'rint', 'rnd', 'rot', 'rl', 'rlb', 'sq', 'sqr', 'sr', 'srb', 'swap', 'tanh', 'y0', 'y1', 'yn', '%t']
+        desired_functions = [ 'char', 'erf', 'erfc', 'expm', 'gcd', 'j0', 'j1',
+        'jn', 'ld', 'ldb', 'lg', 'lgamma', 'lnp1', 'rl', 'rlb', 'sr', 'srb',
+        'y0', 'y1', 'yn', '%t', 'le', 'be', 'htonl', 'ntohl', '=net']
         unimplemented = [ k for k in desired_functions if k not in self.commands_dict.keys()]
         print "unimplemented functions may include:", ' '.join(unimplemented)
 
@@ -3056,7 +3049,6 @@ def main(argv):
     except EOFError, e:
         pass
     print
-    calculator.SaveConfiguration()
     sys.exit(0)
 
 if __name__ == "__main__":

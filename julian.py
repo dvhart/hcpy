@@ -12,7 +12,7 @@ Algorithms", 2nd ed., by Jean Meeus, Willman-Bell, Inc., 1998.
 from mpmath import mpf, mpi, mpc, mp, ctx_iv
 from rational import Rational
 from integer import Zn
-from time import localtime, strftime
+from time import localtime, strftime, time
 from types import StringTypes
 from debug import *
 from mpformat import mpFormat, inf
@@ -228,12 +228,15 @@ class Julian(object):
             raise ValueError("%sCould not convert '%s'" % (fln(), s))
 
     def _convert_now(self, now):
+        nowtime = time()
         d, M, y, h, m, s = [int(i) for i in
-            strftime("%d %m %Y %H %M %S", localtime()).split()]
+            strftime("%d %m %Y %H %M %S", localtime(nowtime)).split()]
         if now == "today":
             return y, M, d, 0, 0, mpf("0")
         elif now == "now":
-            return y, M, d, h, m, mpf(s)
+            fp = mpf(nowtime) - long(nowtime)
+            s = mpf(s) + fp
+            return y, M, d, h, m, s
         else:
             raise Exception("%sProgram bug:  bad string" % fln())
 
@@ -410,11 +413,12 @@ class Julian(object):
             return "Julian(%s)" % Julian.fp.fix(val)
         y, M, d, h, m, s = self._to_date(val)
         try:
-            t = "%d%s%d" % (d, Julian.name_months[M], y)
-            t += ":%02d:%02d" % (h, m)
-            if s != 0:
-                t += ":" + Julian.fp.fix(s).strip()
-            return t
+            t = ["%d %s %d" % (d, Julian.name_months[M], y)]
+            if max(h,m,s) != 0:
+                t += [" %02d:%02d" % (h, m)]
+                if s != 0:
+                    t += [":" + Julian.fp.fix(s).strip()]
+            return ''.join(t)
         except:
             msg = "%sDate representation cannot be calculated\n" + \
                   "Try increasing the precision with `prec`."
