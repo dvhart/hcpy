@@ -31,20 +31,20 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
-from traceback import extract_stack
+import sys
 
 debug_flag = False  # Turn on to enable file:linenumbers in exceptions
 
 def fln():
     'Return a string showing the file and line number if debug is on.'
-    s = extract_stack()[-2:][0]
+    co = sys._getframe(1)
     global debug_flag
     if debug_flag == True:
-        return "[%s:%d] " % (s[0], s[1])
+        return "[%s:%d] " % (co.f_code.co_name, co.f_lineno)
     else:
         return ""
 
-def toggle_debug(state):
+def set_debug(state):
     global debug_flag
     if state != 0:
         debug_flag = True

@@ -112,7 +112,7 @@ atomic unit of magnetizability                         7.891 036 433 e-29    0.0
 atomic unit of mass                                    9.109 382 15 e-31     0.000 000 45 e-31     kg
 atomic unit of momentum                                1.992 851 565 e-24    0.000 000 099 e-24    kg m s^-1
 atomic unit of permittivity                            1.112 650 056... e-10 (exact)               F m^-1
-atomic unit of time                                   2.418 884 326 505 e-17 0.000 000 000016 e-17 s
+atomic unit of time                                    2.418 884 326 505 e-17 0.000 000 000016 e-17 s
 atomic unit of velocity                                2.187 691 2541 e6     0.000 000 0015 e6     m s^-1
 Avogadro constant                                      6.022 141 79 e23      0.000 000 30 e23      mol^-1
 Bohr magneton                                          927.400 915 e-26      0.000 023 e-26        J T^-1
@@ -208,7 +208,7 @@ helion molar mass                                      3.014 932 2473 e-3    0.0
 helion-proton mass ratio                               2.993 152 6713        0.000 000 0026
 hertz-atomic mass unit relationship                    4.439 821 6294 e-24   0.000 000 0064 e-24   u
 hertz-electron volt relationship                       4.135 667 33 e-15     0.000 000 10 e-15     eV
-hertz-hartree relationship                            1.519 829 846 006 e-16 0.000 000 000010 e-16 E_h
+hertz-hartree relationship                             1.519 829 846 006 e-16 0.000 000 000010 e-16 E_h
 hertz-inverse meter relationship                       3.335 640 951... e-9  (exact)               m^-1
 hertz-joule relationship                               6.626 068 96 e-34     0.000 000 33 e-34     J
 hertz-kelvin relationship                              4.799 2374 e-11       0.000 0084 e-11       K

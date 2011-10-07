@@ -45,6 +45,7 @@ from string import strip
 import traceback
 import re as regex
 from tempfile import mkstemp
+from debug import *
 
 try: from pdb import xx  # pdb.set_trace is xx; easy to find for debugging
 except: pass
@@ -75,7 +76,7 @@ from number import Number
 from mpformat import mpFormat
 from integer import Zn
 from julian import Julian
-from debug import fln, toggle_debug, get_debug
+import constants
 # You may create your own display (GUI, curses, etc.) by derivation.  The
 # default Display object just prints to stdout and should work with any
 # console.
@@ -103,11 +104,6 @@ def nop(*args):
     """
     return None
 
-def _functionId(nFramesUp=0):
-    """ Create a string naming the function n frames up on the stack.
-    """
-    co = sys._getframe(nFramesUp+1)
-    return "%s: %d" % (co.f_code.co_name, co.f_lineno)
 
 def isint(x):
     return isinstance(x, int) or isinstance(x, long) or isinstance(x, Zn)
@@ -117,10 +113,11 @@ class Calculator(object):
         self.errors = []
         self.stack = Stack()
         self.stack_index = True
-        self.constants = {}
+        self.constants = constants.ParseRawData()
         self.display = Display()     # Used to display messages to user
         self.fp = mpFormat()         # For formatting floating point numbers
         self.ap = mpFormat()         # For formatting arguments of complex numbers
+        self.number = Number()
         self.registers = {}          # Keeps all stored registers
         self.commands_dict = {
             # Values are
@@ -267,6 +264,7 @@ class Calculator(object):
             "e"        : [self.E, 0],
             "i"        : [self.I, 0],
             "j"        : [self.I, 0],
+            "const"    : [self.const, 0],  # grab a list of constants
 
             # network functions
             # same net - 3 args -- 2 ips and a netmask
@@ -351,9 +349,6 @@ class Calculator(object):
                 pass
             atexit(self.cleanup)
 
-        defined_constants = ["'null'"]
-        for c in self.constants.iterkeys():
-            defined_constants.append("'%s'" %c)
         defined_functions = ["'nop'"]
         funcs = self.commands_dict.keys()
         funcs.sort(reverse=True)
@@ -365,8 +360,9 @@ class Calculator(object):
         calculator_grammar := statement / ws
         statement := simple_statement / (simple_statement, ws, statement) / help_statement
         help_statement := 'help',(ws,(delimited_func / operator))?
-        simple_statement := cint / delimited_func / constant / ipaddr / number / operator / ((constant/number), ows, operator)
+        simple_statement := cint / delimited_func / constant / ipaddr / number / operator / (number, ows, operator)
         cint := [us],[0-9]+
+        constant := 'const'
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
         ipaddr := ipv6 / ipv4
         #ipv6 := (((hex_chars)?),':')+,((hex_chars)?),(':',((hex_chars)?))+
@@ -408,7 +404,6 @@ class Calculator(object):
         delimited_func := (ws,func,ws) / (ws,func) / (func,ws) / func
         """,
             "       func := %s" % ' / '.join(defined_functions),
-            "       constant := %s" % ' / '.join(defined_constants)
         ])
         try:
             self.parser = generator.buildParser(grammar).parserbyname('calculator_grammar')
@@ -1391,6 +1386,59 @@ class Calculator(object):
         """
         return m.mpc(0,1)
 
+    def choose_a_const(self, clist, keys):
+        # read names out in groups of 24
+        name = ''
+        offset = 0
+        prompt = "Type number to choose, enter for (%d) more, q to quit: "
+        winnowed_size = len(clist)
+        while name == '' and offset < winnowed_size:
+            options = []
+            top = min(offset + 24, winnowed_size) - offset
+            for i in xrange(1, top+1):
+                options.append("% 2d: %s" %
+                    (i, keys[clist[offset+i-1][1]])) 
+            self.display.msg('\n'.join(options))
+            name = self.chomp(raw_input(prompt % (winnowed_size - (offset + top))))
+            if name != '':
+                if name == 'q':
+                    return None
+                try:
+                    name = int(name)
+                    if name > 0 and name < top:
+                        lcname, idx = clist[offset + name - 1]
+                        # print "choosing idx=%d -> %s (%d)" % (idx, lcname, name)
+                        return self.constants[keys[idx]]
+                    return None
+                except:
+                    return None
+            offset += 24
+        return None
+
+    def const(self):
+        """
+    Usage: const
+
+    Presents a list of constants to choose from
+        """
+        ord_names = self.constants.keys()
+        ord_names.sort(key=str.lower)
+        lc_names = [ n.lower() for n in ord_names ]
+
+        name = self.chomp(raw_input("Type constant name (or part) or * to list: "))
+        if name == '': return None
+        if name == '*':
+            winnowed = [ (lc_names[i], i) for i in xrange(len(lc_names)) ]
+            return self.choose_a_const(winnowed, ord_names)
+        else:
+            name = name.lower()
+            winnowed = [ (lc_names[i], i) for i in xrange(len(lc_names)) if name in lc_names[i] ]
+            if len(winnowed) == 0:
+                return None
+            if len(winnowed) == 1:
+                return self.constants[ord_names[winnowed[0][1]]]
+            return self.choose_a_const(winnowed, ord_names)
+
     ############################################################################
     # Stack callback functions
     ############################################################################
@@ -1827,8 +1875,7 @@ class Calculator(object):
 
     Returns the the value of x as displayed
         """
-        n = Number()
-        return n(self.Format(x).replace(" ", ""))
+        return self.number(self.Format(x).replace(" ", ""))
 
     def Prec(self, x):
         """
@@ -1934,9 +1981,9 @@ class Calculator(object):
     Set or clear the debug flag based on x
         """
         if x != 0:
-            toggle_debug(True)
+            set_debug(True)
         else:
-            toggle_debug(False)
+            set_debug(False)
 
     def Show(self):
         """
@@ -2860,12 +2907,8 @@ class Calculator(object):
 
     def push(self, val):
         if val is None:
-            raise Exception('BAD! val is None at %s'%_functionId())
-        try:
-            self.stack.push(val)
-        except:
-            print type(val)
-            raise Exception('BAD! at %s'%_functionId())
+            raise Exception('%sBAD! val is None'%fln())
+        self.stack.push(val)
 
     def pop(self):
         return self.stack.pop()
@@ -2901,13 +2944,14 @@ class Calculator(object):
     def token(self):
         # snag the next token from the line
         line = self.read_line()
-        #print "got new line: '%s'" % line
+        # print "got new line: '%s'" % line
         success, taglist, next = TextTools.tag(line, self.parser)
         while self.chomp(line) != '':
             if not success:
-                raise ParseError('Invalid token: %s'%line)
+                raise ParseError("Not a command or value: '%s'"%line)
             #print "'%s' yielding '%s', '%s'" % (line, self.chomp(line[:next]),taglist)
             yield self.chomp(line[:next]), taglist, line[next:]
+            # print "back from yield '%s'"%self.chomp(line[:next])
             line = self.chomp(line[next:])
             #line = line[next:]
             success, taglist, next = TextTools.tag(line, self.parser)
@@ -2936,15 +2980,15 @@ class Calculator(object):
 
     def run(self):
         isiterable = lambda obj: getattr(obj, '__iter__', False)
-        NGen = Number()
         cints = regex.compile(r"[su][0-9]+")
         while True:
             arg = ''
             try:
                 for arg,tag,line in self.token():
-                    #print arg,tag,line
+                    # print arg,line,tag
                     if arg in ['help', '?']:
                         self.commands_dict['help'][0](line)
+                        # print line
                         break
                     elif arg in self.commands_dict:
                         try:
@@ -2977,29 +3021,24 @@ class Calculator(object):
                         #print "num = '%s', arg = '%s'"%(num,arg)
                         if len(num) > 0:
                             try:
-                                num = NGen(self.chomp(arg))
+                                num = self.number(self.chomp(arg))
                                 if num is not None:
                                     self.push(num)
                             except ValueError:
                                 self.errors.append("Invalid input: %s" % arg)
-                if arg not in ['help', '?']:
-                    self.DisplayStack()
             except EOFError:
                 break
             except ParseError:
                 type,value,tb = sys.exc_info()
                 print value
-            except IndexError:
-                if len(self.stack) == 0:
-                    print "Empty stack"
-                else:
-                    print "Insufficient arguments"
             except SystemExit:
                 raise
             except:
                 print "Something bad happened.  Don't do that again!"
                 type,value,tb = sys.exc_info()
                 traceback.print_exception(type, value, tb, None, sys.stdout)
+            if arg not in ['help', '?']:
+                self.DisplayStack()
         readline.write_history_file()
 
     def help(self, args=None):
