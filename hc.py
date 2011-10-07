@@ -1396,8 +1396,8 @@ class Calculator(object):
             options = []
             top = min(offset + 24, winnowed_size) - offset
             for i in xrange(1, top+1):
-                options.append("% 2d: %s" %
-                    (i, keys[clist[offset+i-1][1]])) 
+                ck = keys[clist[offset+i-1][1]]
+                options.append("% 2d: %s" % (i, ck))
             self.display.msg('\n'.join(options))
             name = self.chomp(raw_input(prompt % (winnowed_size - (offset + top))))
             if name != '':
@@ -1409,13 +1409,15 @@ class Calculator(object):
                         lcname, idx = clist[offset + name - 1]
                         # print "choosing idx=%d -> %s (%d)" % (idx, lcname, name)
                         return self.constants[keys[idx]]
+                    self.errors.append("Invalid selection: %d"%name)
                     return None
-                except:
+                except ValueError, e:
+                    self.errors.append("Invalid selection: %s"%name)
                     return None
             offset += 24
         return None
 
-    def const(self):
+    def const(self, line=''):
         """
     Usage: const
 
@@ -1425,15 +1427,20 @@ class Calculator(object):
         ord_names.sort(key=str.lower)
         lc_names = [ n.lower() for n in ord_names ]
 
-        name = self.chomp(raw_input("Type constant name (or part) or * to list: "))
-        if name == '': return None
+        line = self.chomp(line)
+        if line == '':
+            name = self.chomp(raw_input("Type constant name (or part) or * to list: "))
+            if name == '': return None
+        else:
+            name = line
         if name == '*':
             winnowed = [ (lc_names[i], i) for i in xrange(len(lc_names)) ]
             return self.choose_a_const(winnowed, ord_names)
         else:
-            name = name.lower()
-            winnowed = [ (lc_names[i], i) for i in xrange(len(lc_names)) if name in lc_names[i] ]
+            lc_name = name.lower()
+            winnowed = [ (lc_names[i], i) for i in xrange(len(lc_names)) if lc_name in lc_names[i] ]
             if len(winnowed) == 0:
+                self.errors.append("No constant like '%s'"%name)
                 return None
             if len(winnowed) == 1:
                 return self.constants[ord_names[winnowed[0][1]]]
@@ -2988,7 +2995,11 @@ class Calculator(object):
                     # print arg,line,tag
                     if arg in ['help', '?']:
                         self.commands_dict['help'][0](line)
-                        # print line
+                        break
+                    elif arg == "const":
+                        cv = self.commands_dict['const'][0](line)
+                        if cv is not None:
+                            self.push(cv)
                         break
                     elif arg in self.commands_dict:
                         try:
@@ -3008,9 +3019,6 @@ class Calculator(object):
                                 if isint(v):
                                     v = Zn(v)
                                 self.push(v)
-                    elif arg in self.constants:
-                        self.push(self.constants[arg])
-                    # these are the base tokens for functions and constants
                     elif arg in ['null', 'nop']:
                         pass
                     elif cints.match(arg):
