@@ -80,7 +80,7 @@ class Zn(object):
         self.n = 0
         self.my_num_bits = Zn.num_bits
         self.my_is_signed = Zn.is_signed
-        if type(value) == type(""):
+        if type(value) == str:
             self._set_from_string(value)
         elif isinstance(value, int) or isinstance(value, long):
             self.value = value
@@ -228,7 +228,7 @@ class Zn(object):
         if isinstance(y, int) or isinstance(y, long):
             y = Zn(y)
         elif not isinstance(y, Zn):
-            raise TypeError("%sOperand must be an integer object" % fln())
+            return False
         if y.bits != Zn.num_bits:
             y._update()
         if self.bits != Zn.num_bits:
@@ -320,10 +320,10 @@ class Zn(object):
         return self.n
 
     def __float__(self):
-        raise SyntaxError("Conversion to float not allowed")
+        return mpf(self.n)
 
     def __complex__(self):
-        raise SyntaxError("Conversion to complex not allowed")
+        return mpc(self.n, 0)
 
     def _suffix(self):
         fmt = Zn.space + Zn.left + "%s%d" + Zn.right
@@ -359,7 +359,7 @@ class Zn(object):
         'See comments under __neg__ for some subleties.'
         msg = "%sCan't take the absolute value of the most negative number"
         if Zn.is_signed == True and self.n == -(Zn.base >> 1):
-            raise SyntaxError(msg % fln())
+            raise ValueError(msg % fln())
         return Zn(abs(self.n))
 
     def __neg__(self):
@@ -430,32 +430,76 @@ class Zn(object):
             return Zn(-(Zn.base >> 1))
         return Zn(-self.n)
 
+    def __coerce__(self, other):
+        # hmmmmm.... the types we can encounter
+        if isint_native(other):
+            return self, Zn(other)
+        ot = type(other)
+        if ot == mpc:
+            return mpc(self.value, 0), other
+        if ot == mpf:
+            return mpf(self.value), other
+        if isint_native(other):
+            return self, Zn(other)
+        print "Zn could not coerce type '%s'"%str(ot)
+        return None
+
     def __add__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value + y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value + z.value)
+        return self.value + y
 
     def __iadd__(self, y):
-        y = self._check_type(y)
-        self.value += y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value += z.value
+            return self
+        return self.value + y
+
+    def __radd__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value + z.value)
+        return self.value + y
 
     def __sub__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value - y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value - z.value)
+        return self.value - y
 
     def __isub__(self, y):
-        y = self._check_type(y)
-        self.value -= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value -= z.value
+            return self
+        return self.value - y
+
+    def __rsub__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(-self.value + z.value)
+        return -self.value + y
 
     def __mul__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value*y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value * z.value)
+        return self.value * y
 
     def __imul__(self, y):
-        y = self._check_type(y)
-        self.value *= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value *= z.value
+            return self
+        return self.value * y
+
+    def __rmul__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value * z.value)
+        return self.value * y
 
     def __div__(self, y):
         y = self._check_type(y)
@@ -487,17 +531,34 @@ class Zn(object):
             self.value //= y.value
         return self
 
+    def __rdiv__(self, y):
+        z = self._check_type(y)
+        if z:
+            return z.__div__(self)
+        return y / self.value
+
     __floordiv__ = __div__
     __ifloordiv__ = __idiv__
+    __rfloordiv__ = __rdiv__
 
     def __mod__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value % y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value % z.value)
+        return self.value % y
 
     def __imod__(self, y):
-        y = self._check_type(y)
-        self.value %= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value %= z.value
+            return self
+        return self.value % y
+
+    def __rmod__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value % self.value)
+        return z % self.value
 
     def __cmp__(self, y):
         if isinstance(y, Zn):
@@ -516,55 +577,112 @@ class Zn(object):
             return -1
 
     def __and__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value & y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value & z.value)
+        return self.value & y
 
     def __iand__(self, y):
-        y = self._check_type(y)
-        self.value &= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value &= z.value
+            return self
+        return self.value & y
+
+    def __rand__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value & self.value)
+        return y & self.value
 
     def __or__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value | y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value | y.value)
+        return self.value | y
 
     def __ior__(self, y):
-        y = self._check_type(y)
-        self.value |= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value |= z.value
+            return self
+        return self.value | y
+
+    def __ror__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value | self.value)
+        return y | self.value
 
     def __xor__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value ^ y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value ^ z.value)
+        return self.value ^ y
 
     def __ixor__(self, y):
-        y = self._check_type(y)
-        self.value ^= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value ^= z.value
+            return self
+        return self.value ^ y
+
+    def __rxor__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value ^ self.value)
+        return y ^ self.value
 
     def __lshift__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value << y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value << z.value)
+        return self.value << y
 
     def __ilshift__(self, y):
-        y = self._check_type(y)
-        self.value <<= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value <<= z.value
+            return self
+        return self.value << y
+
+    def __rlshift__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value << self.value)
+        return y << self.value
 
     def __rshift__(self, y):
-        y = self._check_type(y)
-        return Zn(self.value >> y.value)
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value >> z.value)
+        return self.value >> y
 
     def __irshift__(self, y):
-        y = self._check_type(y)
-        self.value >>= y.value
-        return self
+        z = self._check_type(y)
+        if z:
+            self.value >>= z.value
+            return self
+        return self.value >> y
+
+    def __rrshift__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(z.value << self.value)
+        return y >> self.value
 
     def __invert__(self):
         return Zn(~self.value)
 
     def __truediv__(self, y):
-        raise SyntaxError("%sTrue division not allowed with Zn objects" % fln())
+        if isinstance(y, Zn): y = y.value
+        return mpf(self.value) / mpf(y)
+
+    def __pow__(self, y):
+        z = self._check_type(y)
+        if z:
+            return Zn(self.value ** z.value)
+        return self.value ** y
 
 if __name__ == "__main__":
     # Run unit tests

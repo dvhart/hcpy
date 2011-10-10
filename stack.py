@@ -127,8 +127,9 @@ class Stack(object):
         s.reverse()
         fmt = "%%(index) %dd: %%(value)s" % (2+int(log10(max(len(s),1))))
         m = []
-        for i in xrange(len(s)):
-            m.append(fmt % { 'index': size - i, 'value': func(s[i])})
+        lens = len(s)
+        for i in xrange(lens):
+            m.append(fmt % { 'index': size - i, 'value': func(s[i], i==(lens-1))})
         s = '\n'.join(m)
         # Special treatment for the first four registers:  name them x, y,
         # z, t (as is done for HP calculators).

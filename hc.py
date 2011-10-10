@@ -105,6 +105,9 @@ def nop(*args):
     return None
 
 
+def isint_native(x):
+    return isinstance(x, int) or isinstance(x, long)
+
 def isint(x):
     return isinstance(x, int) or isinstance(x, long) or isinstance(x, Zn)
 
@@ -206,9 +209,10 @@ class Calculator(object):
             "abs"      : [self.abs, 1],   # Absolute value of x
             "arg"      : [self.arg, 1],# {"post" : Conv2Deg}],  # Argument of complex
             "ln"       : [self.ln, 1],    # Natural logarithm
-            "ln2"      : [self.Ln2, 1],     # Base 2 logarithm
+            "log2"      : [self.log2, 1],     # Base 2 logarithm
             "log"      : [self.log10, 1], # Base 10 logarithm
             "exp"      : [self.exp, 1], # Exponential function
+            "bits"     : [self.bits, 1], # calculate the number of bits required for this integer
 
             # 0-nary functions
             "rand"     : [self.rand, 0],  # Uniform random number
@@ -637,6 +641,7 @@ class Calculator(object):
             if self.cfg["angle_mode"] == "deg":
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
+                if isinstance(x, Zn): x = int(x)
                 return m.degrees(x)
             return x
         except:
@@ -651,6 +656,7 @@ class Calculator(object):
             if self.cfg["angle_mode"] == "deg":
                 if isinstance(x, m.mpc):  # Don't change complex numbers
                     return x
+                if isinstance(x, Zn): x = int(x)
                 return m.radians(x)
             return x
         except:
@@ -659,7 +665,7 @@ class Calculator(object):
     #---------------------------------------------------------------------------
     # Binary functions
 
-    def add(self, x, y):
+    def add(self, y, x):
         """
     Usage: y x +
 
@@ -669,11 +675,11 @@ class Calculator(object):
             return (x + y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
         try:
-            return x + y
-        except:
             return y + x
+        except Exception, e:
+            return x + y
 
-    def subtract(self, x, y):
+    def subtract(self, y, x):
         """
     Usage: y x -
 
@@ -683,56 +689,56 @@ class Calculator(object):
             return (x - y) % self.cfg["modulus"]
         self.TypeCheck(x, y)
         try:
-            return x - y
+            return y - x
         except:
-            return -y + x
+            return -x + y
 
-    def multiply(self, x, y):
+    def multiply(self, y, x):
         """
     Usage: y x *
 
     Return the product of the bottom two items on the stack (y * x)
         """
-        if self.use_modular_arithmetic(x, y):
-            return (x*y) % self.cfg["modulus"]
-        self.TypeCheck(x, y)
+        if self.use_modular_arithmetic(y, x):
+            return (y*x) % self.cfg["modulus"]
+        self.TypeCheck(y, x)
         try:
-            return x*y
-        except:
             return y*x
+        except:
+            return x*y
 
-    def divide(self, x, y):
+    def divide(self, y, x):
         """
     Usage: y x /
 
     Return the quotient of the bottom two items on the stack (y / x)
         """
         if self.use_modular_arithmetic(x, y):
-            return (x//y) % self.cfg["modulus"]
-        self.TypeCheck(x, y)
-        if y == 0:
+            return (y//x) % self.cfg["modulus"]
+        self.TypeCheck(y, x)
+        if x == 0:
             if self.cfg["allow_divide_by_zero"]:
-                if x > 0:
+                if y > 0:
                     return m.inf
-                elif x < 0:
+                elif y < 0:
                     return -m.inf
                 else:
                     raise ValueError("%s0/0 is ambiguous" % fln())
             else:
                 raise ValueError("%sCan't divide by zero" % fln())
-        if isint(x) and isint(y):
+        if isint(y) and isint(x):
             if self.cfg["no_rationals"]:
-                return mpf(x)/mpf(y)
+                return mpf(y)/mpf(x)
             else:
-                q = Rational(int(x), int(y))
+                q = Rational(int(y), int(x))
                 if q.d == 1:
                     return q.n
                 else:
                     return q
         try:
-            return x/y
+            return y/x
         except:
-            return (1/y)*x
+            return (1/x)*y
 
     def Mod(self, n, d):
         """
@@ -763,120 +769,120 @@ class Calculator(object):
         self.TypeCheck(n, d)
         if isint(n) and isint(d):
             return Zn(n) // Zn(d)
-        n   = Convert(n, MPF)
+        n = Convert(n, MPF)
         d = Convert(d, MPF)
         return int(m.floor(n/d))
 
-    def bit_and(self, x, y):
+    def bit_and(self, y, x):
         """
     Usage: y x &
 
     Return the bitwise AND of the bottom two items on the stack (y & x)
         """
-        self.TypeCheck(x, y)
-        if isint(x) and isint(y):
-            return Zn(x) & Zn(y)
-        x = Convert(x, INT)
+        self.TypeCheck(y, x)
+        if isint(y) and isint(x):
+            return Zn(y) & Zn(x)
         y = Convert(y, INT)
-        return x & y
+        x = Convert(x, INT)
+        return y & x
 
-    def bit_or(self, x, y):
+    def bit_or(self, y, x):
         """
     Usage: y x |
 
     Return the bitwise OR of the bottom two items on the stack (y | x)
         """
-        self.TypeCheck(x, y)
-        if isint(x) and isint(y):
-            return Zn(x) | Zn(y)
-        x = Convert(x, INT)
+        self.TypeCheck(y, x)
+        if isint(y) and isint(x):
+            return Zn(y) | Zn(x)
         y = Convert(y, INT)
-        return x | y
+        x = Convert(x, INT)
+        return y | x
 
-    def bit_xor(self, x, y):
+    def bit_xor(self, y, x):
         """
     Usage: y x xor
 
     Return the bitwise XOR of the bottom two items on the stack (y XOR x)
         """
-        self.TypeCheck(x, y)
-        if isint(x) and isint(y):
-            return Zn(x) ^ Zn(y)
-        x = Convert(x, INT)
+        self.TypeCheck(y, x)
+        if isint(y) and isint(x):
+            return Zn(y) ^ Zn(x)
         y = Convert(y, INT)
-        return x ^ y
+        x = Convert(x, INT)
+        return y ^ x
 
-    def bit_leftshift(self, x, y):
+    def bit_leftshift(self, y, x):
         """
     Usage: y x <<
 
     Return the bitwise left shift of the bottom two items on the stack (y << x)
         """
-        self.TypeCheck(x, y)
-        if isint(x) and isint(y):
-            return Zn(x) << Zn(y)
-        x = Convert(x, INT)
+        self.TypeCheck(y, x)
+        if isint(y) and isint(x):
+            return Zn(y) << Zn(x)
         y = Convert(y, INT)
-        return x << y
+        x = Convert(x, INT)
+        return y << x
 
-    def bit_rightshift(self, x, y):
+    def bit_rightshift(self, y, x):
         """
     Usage: y x >>
 
     Return the bitwise right shift of the bottom two items on the stack (y >> x)
         """
-        self.TypeCheck(x, y)
-        if isint(x) and isint(y):
-            return Zn(x) >> Zn(y)
-        x = Convert(x, INT)
+        self.TypeCheck(y, x)
+        if isint(y) and isint(x):
+            return Zn(y) >> Zn(x)
         y = Convert(y, INT)
-        return x >> y
+        x = Convert(x, INT)
+        return y >> x
 
-    def percent_change(self, x, y):
+    def percent_change(self, y, x):
         """
     Usage: y x %ch
 
     Return the percent change between the bottom two items on the stack
         """
-        x = Convert(x, MPF)
         y = Convert(y, MPF)
-        if x == 0:
+        x = Convert(x, MPF)
+        if y == 0:
             raise ValueError("%sBase is zero for %ch" % fln())
-        return 100*(y - x)/x
+        return 100*(x - y)/y
 
-    def combination(self, x, y):
+    def combination(self, y, x):
         """
     Usage: y x comb
 
     Return the statistical combination of the bottom two items on the stack
         """
         if (not self.cfg["coerce"]) and \
-           (not isint(x)) and (not isint(y)):
+           (not isint(y)) and (not isint(x)):
             raise ValueError(self.argument_types % fln())
-        x = Convert(x, INT)
         y = Convert(y, INT)
-        return int(self.permutation(x, y)//self.Factorial(y))
+        x = Convert(x, INT)
+        return int(self.permutation(y, x)//self.Factorial(x))
 
-    def permutation(self, x, y):
+    def permutation(self, y, x):
         """
     Usage: y x perm
 
     Return the statistical permutation of the bottom two items on the stack
         """
         if (not self.cfg["coerce"]) and \
-           (not isint(x)) and (not isint(y)):
+           (not isint(y)) and (not isint(x)):
             raise ValueError(self.argument_types % fln())
-        x = Convert(x, INT)
         y = Convert(y, INT)
-        return int(self.Factorial(x)//self.Factorial(x - y))
+        x = Convert(x, INT)
+        return int(self.Factorial(y)//self.Factorial(y - x))
 
-    def power(self, x, y):
+    def power(self, y, x):
         """
     Usage: y x ^
 
     Return the value of the pow() function applied to the bottom two items on the stack (y^x)
         """
-        return pow(x, y)
+        return pow(y, x)
 
     #---------------------------------------------------------------------------
     # Unary functions
@@ -921,8 +927,7 @@ class Calculator(object):
     Returns the complex conjugate of complex number x
         """
         if isinstance(x, m.mpc):
-            n = Convert(x, MPC)
-            return m.mpc(n.real, -n.imag)
+            return x.conjugate()
         else:
             return x
 
@@ -932,6 +937,7 @@ class Calculator(object):
 
     Returns the square root of x
         """
+        if isinstance(x, Zn): x = int(x)
         return m.sqrt(x)
 
     def cbrt(self, x):
@@ -940,15 +946,18 @@ class Calculator(object):
 
     Returns the cube root of x
         """
+        if isinstance(x, Zn): x = int(x)
         return m.cbrt(x)
 
-    def root(self, y, x):
+    def root(self, y, x, k=0):
         """
     Usage: y x root
 
     Returns the xth root of y
         """
-        return m.root(y, x, k=0)
+        if isinstance(x, Zn): x = int(x)
+        if isinstance(y, Zn): y = int(y)
+        return m.root(y, x, k)
 
     def roots(self, y, x):
         """
@@ -956,7 +965,7 @@ class Calculator(object):
 
     Returns all the xth roots of y
         """
-        return [ m.root(y, x, k) for k in xrange(x) ]
+        return [ self.root(y, x, k) for k in xrange(x) ]
 
     def square(self, x):
         """
@@ -1023,6 +1032,7 @@ class Calculator(object):
 
     Returns the next integer less than or equal to x
     """
+        if isinstance(x, Zn): x = int(x)
         return m.floor(x)
 
     def ceil(self, x):
@@ -1031,6 +1041,7 @@ class Calculator(object):
 
     Returns the next integer greater than or equal to x
     """
+        if isinstance(x, Zn): x = int(x)
         return m.ceil(x)
 
     def atan2(self, x, y):
@@ -1039,6 +1050,7 @@ class Calculator(object):
 
     Returns the arc tangent of the angle with legs y and x (gets angle sign correct)
         """
+        if isinstance(x, Zn): x = int(x)
         return m.atan2(x, y)
 
     def hypot(self, x, y):
@@ -1047,6 +1059,7 @@ class Calculator(object):
 
     Returns the hypotenuse of the right triangle with legs x and y
         """
+        if isinstance(x, Zn): x = int(x)
         return m.hypot(x, y)
 
     def sin(self, x):
@@ -1055,6 +1068,7 @@ class Calculator(object):
 
     Returns the sine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.sin(self.Conv2Rad(x))
 
     def cos(self, x):
@@ -1063,6 +1077,7 @@ class Calculator(object):
 
     Returns the cosine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.cos(self.Conv2Rad(x))
 
     def tan(self, x):
@@ -1071,6 +1086,7 @@ class Calculator(object):
 
     Returns the tangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.tan(self.Conv2Rad(x))
 
     def asin(self, x):
@@ -1079,6 +1095,7 @@ class Calculator(object):
 
     Returns the arc-sine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.asin(x))
 
     def acos(self, x):
@@ -1087,6 +1104,7 @@ class Calculator(object):
 
     Returns the arc-cosine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acos(x))
 
     def atan(self, x):
@@ -1095,6 +1113,7 @@ class Calculator(object):
 
     Returns the arctangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.atan(x))
 
     def sec(self, x):
@@ -1103,6 +1122,7 @@ class Calculator(object):
 
     Returns the secant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.sec(self.Conv2Rad(x))
 
     def csc(self, x):
@@ -1111,6 +1131,7 @@ class Calculator(object):
 
     Returns the cosecant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.csc(self.Conv2Rad(x))
 
     def cot(self, x):
@@ -1119,6 +1140,7 @@ class Calculator(object):
 
     Returns the cotangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.cot(self.Conv2Rad(x))
 
     def asec(self, x):
@@ -1127,6 +1149,7 @@ class Calculator(object):
 
     Returns the arc-secant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.asec(x))
 
     def acsc(self, x):
@@ -1135,6 +1158,7 @@ class Calculator(object):
 
     Returns the arc-cosecant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acsc(x))
 
     def acot(self, x):
@@ -1143,6 +1167,7 @@ class Calculator(object):
 
     Returns the arc-cotangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acot(x))
 
     def sinh(self, x):
@@ -1151,6 +1176,7 @@ class Calculator(object):
 
     Returns the hypebolic sine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.sinh(self.Conv2Rad(x))
 
     def cosh(self, x):
@@ -1159,6 +1185,7 @@ class Calculator(object):
 
     Returns the hypebolic cosine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.cosh(self.Conv2Rad(x))
 
     def tanh(self, x):
@@ -1167,6 +1194,7 @@ class Calculator(object):
 
     Returns the hypebolic tangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.tanh(self.Conv2Rad(x))
 
     def asinh(self, x):
@@ -1175,6 +1203,7 @@ class Calculator(object):
 
     Returns the hypebolic arc-sine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.asinh(x))
 
     def acosh(self, x):
@@ -1183,6 +1212,7 @@ class Calculator(object):
 
     Returns the hypebolic arc-cosine of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acosh(x))
 
     def atanh(self, x):
@@ -1191,6 +1221,7 @@ class Calculator(object):
 
     Returns the hypebolic arctangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.atanh(x))
 
     def sech(self, x):
@@ -1199,6 +1230,7 @@ class Calculator(object):
 
     Returns the hyperbolic secant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.sech(self.Conv2Rad(x))
 
     def csch(self, x):
@@ -1207,6 +1239,7 @@ class Calculator(object):
 
     Returns the hyperbolic cosecant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.csch(self.Conv2Rad(x))
 
     def coth(self, x):
@@ -1215,6 +1248,7 @@ class Calculator(object):
 
     Returns the hyperbolic cotangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.coth(self.Conv2Rad(x))
 
     def asech(self, x):
@@ -1223,6 +1257,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-secant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.asech(x))
 
     def acsch(self, x):
@@ -1231,6 +1266,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-cosecant of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acsch(x))
 
     def acoth(self, x):
@@ -1239,6 +1275,7 @@ class Calculator(object):
 
     Returns the hyperbolic arc-cotangent of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return self.Conv2Deg(m.acoth(x))
 
     def ln(self, x):
@@ -1247,14 +1284,16 @@ class Calculator(object):
 
     Returns the natural log of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.ln(x)
 
-    def Ln2(self, x):
+    def log2(self, x):
         """
     Usage: x log2
 
     Returns the log2 of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.ln(x)/m.ln(2)
 
     def log10(self, x):
@@ -1263,15 +1302,27 @@ class Calculator(object):
 
     Returns the log10 of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.log10(x)
 
-    def exp(self, x, y):
+    def exp(self, x):
         """
     Usage: x exp
 
     Returns e raised to the power of top item on the stack (e^x)
         """
-        return m.exp(x, y)
+        if isinstance(x, Zn): x = int(x)
+        return m.exp(x)
+
+    def bits(self, x):
+        """
+    Usage: x bits
+
+    Returns the number of bits required to represent x as an integer
+        """
+        if isinstance(x, Zn): x = int(x)
+        if x < 0: x = self.abs(x)
+        return int(self.ceil(self.log2(x)))
 
     def abs(self, x):
         """
@@ -1279,7 +1330,7 @@ class Calculator(object):
 
     Returns the absolute value of the top item on the stack
         """
-        return m.abs(x)
+        return abs(x)
 
     def arg(self, x):
         """
@@ -1287,6 +1338,7 @@ class Calculator(object):
 
     Returns the complex argument of the top item on the stack
         """
+        if isinstance(x, Zn): x = int(x)
         return m.arg(x)
 
     def gamma(self, x):
@@ -1295,6 +1347,7 @@ class Calculator(object):
 
     Returns the gamma function at x
         """
+        if isinstance(x, Zn): x = int(x)
         return m.gamma(x)
 
     def zeta(self, x):
@@ -1303,6 +1356,7 @@ class Calculator(object):
 
     Returns the zeta function at x
         """
+        if isinstance(x, Zn): x = int(x)
         return m.zeta(x)
 
     def Ncdf(self, x):
@@ -2471,12 +2525,14 @@ class Calculator(object):
             self.display.msg("Warning:  floating point number was 'damaged' by inserting ellipsis")
         return new_s
 
-    def Format(self, x):
+    def Format(self, x, item_is_x=True):
         '''Format the four different types of numbers.  Return a string in
-        the proper format.
+        the proper format.  The item_is_x arg is because we never want to
+        ellipsize x, no matter the size.  This is passed in by the stack display
+        function as it processes the stack.
         '''
         width = abs(self.cfg["line_width"])
-        brief = self.cfg["brief"]
+        brief = self.cfg["brief"] and not item_is_x
         e = self.cfg["ellipsis"]
         im = self.cfg["integer_mode"]
         stack_header_allowance = 5
@@ -2968,6 +3024,9 @@ class Calculator(object):
         v = None
         if n == 'x':
             v = self.pop()
+            if not isint(v):
+                self.push(v)
+                raise TypeError("'%s' requires an integer as the first argument" % fn)
             n = int(v)
         #print "stack size is %d"%len(self.stack)
         l = len(self.stack)
@@ -2981,7 +3040,6 @@ class Calculator(object):
                     (fn, n, l))
         for i in range(n):
             val = self.pop()
-            if isinstance(val, Zn): val = int(val)
             args.insert(0, val)
         return args
 
@@ -3009,14 +3067,14 @@ class Calculator(object):
                             except (ValueError, TypeError), e:
                                 self.errors.append(str(e))
                                 retval = args
-                        except IndexError, e:
+                        except (IndexError, TypeError), e:
                             self.errors.append(str(e))
                             continue
                         if not isiterable(retval):
                             retval = [retval]
                         for v in retval:
                             if v is not None:
-                                if isint(v):
+                                if isint_native(v):
                                     v = Zn(v)
                                 self.push(v)
                     elif arg in ['null', 'nop']:
@@ -3034,6 +3092,8 @@ class Calculator(object):
                                     self.push(num)
                             except ValueError:
                                 self.errors.append("Invalid input: %s" % arg)
+                if arg not in ['help', '?']:
+                    self.DisplayStack()
             except EOFError:
                 break
             except ParseError:
@@ -3045,8 +3105,6 @@ class Calculator(object):
                 print "Something bad happened.  Don't do that again!"
                 type,value,tb = sys.exc_info()
                 traceback.print_exception(type, value, tb, None, sys.stdout)
-            if arg not in ['help', '?']:
-                self.DisplayStack()
         readline.write_history_file()
 
     def help(self, args=None):
