@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #----------------------------------
 # Python library stuff
 import sys, getopt, os, time, readline
+from socket import htonl
 from atexit import register as atexit
 from string import strip
 import traceback
@@ -74,7 +75,7 @@ from cmddecod import CommandDecode
 from stack import Stack
 from number import Number
 from mpformat import mpFormat
-from integer import Zn
+from integer import Zn, ipaddr
 from julian import Julian
 import constants
 # You may create your own display (GUI, curses, etc.) by derivation.  The
@@ -177,6 +178,7 @@ class Calculator(object):
             "C"        : [self.Cast_c, 1],  # Convert to complex number
             "T"        : [self.Cast_t, 1],  # Convert to time/date
             "V"        : [self.Cast_v, 1],  # Convert to interval number
+            "IP"       : [self.IP, 1],  # Convert to ip address
             "2deg"     : [self.ToDegrees, 1],  # Convert x to radians
             "2rad"     : [self.ToRadians, 1],  # Convert x to degrees
             "unix"     : [self.ToUnix, 1],  # Convert julian to unix timestamp
@@ -273,11 +275,13 @@ class Calculator(object):
             # network functions
             # same net - 3 args -- 2 ips and a netmask
             # broadcast - 2 args - ip and a netmask
+            "netmask"  : [self.netmask, 2],  # apply a given netmask to an ip address
+            "cidr"     : [self.cidr, 2],  # apply a given netmask to an ip address
             # net match
             "le"       : [nop, 0],  # set little-endian integer mode
             "be"       : [nop, 0],  # set big-endian integer mode
-            "htonl"    : [nop, 1],  # return htonl x
-            "ntohl"    : [nop, 1],  # return ntohl x
+            "htonl"    : [self.ntohl, 1],  # return htonl x
+            "ntohl"    : [self.ntohl, 1],  # return ntohl x
             "=net"     : [nop, 3],  # check to see if z and y are on same subnet x
 
             # Other stuff
@@ -324,7 +328,6 @@ class Calculator(object):
             "hex"      : [self.hex, 0],  # Hex display for integers
             "oct"      : [self.oct, 0],  # Octal for integers
             "bin"      : [self.bin, 0],  # Binary display for integers
-            "IP"       : [self.IP, 0],  # ip address display
             # The none display mode is primarily intended for debugging.  It
             # displays makes the mpmath numbers display in their native formats.
 
@@ -368,8 +371,10 @@ class Calculator(object):
         cint := [us],[0-9]+
         constant := 'const'
         operator := '+' / '*' / '/' / '-' / '%' / '^' / '&' / '!'
-        ipaddr := ipv6 / ipv4
+        ipaddr := ipv6cidr / ipv4cidr / ipv6 / ipv4
         #ipv6 := (((hex_chars)?),':')+,((hex_chars)?),(':',((hex_chars)?))+
+        ipv6cidr := ipv6,'/',[0-9],[0-9]?,[0-9]?
+        ipv4cidr := ipv4,'/',[0-9],[0-9]?
         ipv6 := '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
         ipv4 := [0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?
         number := scaler_number / compound_number
@@ -677,6 +682,7 @@ class Calculator(object):
         try:
             return y + x
         except Exception, e:
+            self.errors.append(str(e))
             return x + y
 
     def subtract(self, y, x):
@@ -1501,6 +1507,50 @@ class Calculator(object):
             return self.choose_a_const(winnowed, ord_names)
 
     ############################################################################
+    # networking functions
+    ############################################################################
+
+    def ntohl(self, x):
+        """
+    Usage: x ntohl
+           x htonl
+
+    Changes int from net (big-endian) to host order and back again
+        """
+        if not isint(x):
+            raise TypeError("ntohl requires an integer argument")
+        return htonl(int(x))
+
+    def netmask(self, x, y):
+        """
+    Usage: y x netmask
+
+    Adds netmask information to an IP address.  In the netmask form,
+    use something like '192.168.2.50 192.168.2.255 netmask'.
+
+    An alternative is to enter the IP address with the netmask
+    already appended in cidr format such as '192.168.2.50/24'.
+        """
+        if not isint(x):
+            raise TypeError("ntohl requires an integer argument")
+
+    def cidr(self, y, x):
+        """
+    Usage: y x cidr
+
+    Adds netmask information to an IP address.  In the netmask form,
+    use something like '192.168.2.50 24 cidr'.
+
+    An alternative is to enter the IP address with the netmask
+    already appended in cidr format such as '192.168.2.50/24'.
+        """
+        if not isint(x):
+            raise TypeError("cidr requires an integer argument for netmask")
+        if not isint(y):
+            raise TypeError("cidr requires an integer (or IP) argument for IP address")
+        return ipaddr(y, x)
+
+    ############################################################################
     # Stack callback functions
     ############################################################################
 
@@ -2192,13 +2242,13 @@ class Calculator(object):
         """
         self.cfg["integer_mode"] = "bin"
 
-    def IP(self):
+    def IP(self, x):
         """
     Usage: IP
 
-    Set IP address mode for display of integers
+    Convert integer to an IP address
         """
-        self.cfg["integer_mode"] = "ip"
+        return ipaddr(x)
 
     def iva(self):
         """
@@ -2536,8 +2586,10 @@ class Calculator(object):
         e = self.cfg["ellipsis"]
         im = self.cfg["integer_mode"]
         stack_header_allowance = 5
-        if isint(x):
-            if isinstance(x, int) or isinstance(x, long):
+        if isinstance(x, ipaddr):
+            s = str(x)
+        elif isint(x):
+            if isint_native(x):
                 x = Zn(x)
             if im == "dec":
                 s = str(x)
@@ -2547,8 +2599,6 @@ class Calculator(object):
                 s = oct(x)
             elif im == "bin":
                 s = x.bin()
-            elif im == "ip":
-                s = x.ip()
             else:
                 raise Exception("%s'%s' integer mode is unrecognized" % (im, fln()))
             # Prepend a space or + if this is being done in the mpFormat

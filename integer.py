@@ -302,17 +302,6 @@ class Zn(object):
             assert len(s) == Zn.num_bits, "s='%s'  %d bits" % (s, Zn.num_bits)
         return sign + "0b" + s + t
 
-    def ip(self):
-        'IP address representation'
-        pack = lambda n: n>0 and pack(n>>8)+chr(n&0xff) or ''
-
-        v = pack(self.n)
-        if self.n > 0xffffffff:
-            # ipv6 address?
-            return socket.inet_ntop(socket.AF_INET6, v)
-        else:
-            return socket.inet_ntop(socket.AF_INET, v)
-
     def __int__(self):
         return self.n
 
@@ -683,6 +672,80 @@ class Zn(object):
         if z:
             return Zn(self.value ** z.value)
         return self.value ** y
+
+class ipaddr(Zn):
+    def __init__(self, value=0, cidr=None):
+        Zn.__init__(self, value)
+        self.my_is_signed = False
+        if isinstance(value, ipaddr):
+            self.is_ipv4 = value.is_ipv4
+            self.is_ipv6 = value.is_ipv6
+        else:
+            if self.value > 0xffffffff:
+                self.is_ipv4 = False
+                self.is_ipv6 = True
+                self.my_num_bits = 128
+            elif self.value > 0:
+                self.is_ipv4 = True
+                self.is_ipv6 = False
+                self.my_num_bits = 32
+            else:
+                self.is_ipv4 = True
+                self.is_ipv6 = True
+                self.my_num_bits = 128
+        if isinstance(cidr, str):
+            cidr = int(cidr)
+        if cidr is not None:
+            if cidr < 0:
+                raise ValueError("CIDR must not be negative")
+            if self.is_ipv4 and cidr > 32:
+                raise ValueError("CIDR for a IPv4 address cannot be greater than 32")
+            elif self.is_ipv6 and cidr > 128:
+                raise ValueError("CIDR for a IPv6 address cannot be greater than 128")
+        self.cidr = cidr
+
+    def __str__(self):
+        'IP address representation'
+        pack = lambda n: n>0 and pack(n>>8)+chr(n&0xff) or ''
+
+        cidr = ''
+        if self.cidr is not None:
+            cidr = '/%d'%self.cidr
+        v = pack(self.value)
+        if self.value == 0:
+            return '::'
+        if self.is_ipv6:
+            # ipv6 address?
+            if len(v) < 16:
+                v = '\x00'*(16-len(v))+v
+            return socket.inet_ntop(socket.AF_INET6, v)+cidr
+        else:
+            if len(v) < 4:
+                v = '\x00'*(4-len(v))+v
+            return socket.inet_ntop(socket.AF_INET, v)+cidr
+
+    def __add__(self, y):
+        y = self._check_type(y)
+        return ipaddr(self.value + y.value, self.cidr)
+
+    def __iadd__(self, y):
+        y = self._check_type(y)
+        self.value += y.value
+        return self
+
+    def __sub__(self, y):
+        y = self._check_type(y)
+        return ipaddr(self.value - y.value, self.cidr)
+
+    def __isub__(self, y):
+        y = self._check_type(y)
+        self.value -= y.value
+        return self
+
+    def __mul__(self, y):
+        y = self._check_type(y)
+        return ipaddr(self.value*y.value, self.cidr)
+
 
 if __name__ == "__main__":
     # Run unit tests

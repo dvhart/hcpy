@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import re
 from mpmath import mpf, mpc, mpi, inf
 from rational import Rational
-from integer import Zn, isint
+from integer import Zn, isint, ipaddr
 from julian import Julian
 from string import strip
 from si import suffixes_ln
@@ -233,20 +233,30 @@ class Number(object):
             v = '0x'
             for i in range(len(s)):
                 v += '%02x' % ord(s[i])
-            return v
+            return int(v,16)
+        cidr = None
+        if '/' in s:
+            sparts = s.split('/')
+            s = sparts[0]
+            cidr = sparts[1]
         try:
             mo = ip.match(s)
+            if cidr is None:
+                cidr = 32
             if mo:
                 dquad = [ int(i) for i in mo.groups() if i ]
                 if max(dquad) > 255:
                     return None
                 ps = socket.inet_pton(socket.AF_INET, s)
-                return self.i(unpack(ps))
+                return ipaddr(unpack(ps), cidr)
             else:
+                if cidr is None:
+                    cidr = 128
                 if ip6.match(s):
                     ps = socket.inet_pton(socket.AF_INET6, s)
-                    return self.i(unpack(ps))
+                    return ipaddr(unpack(ps), cidr)
         except Exception, e:
+            print e
             pass
         return None
 
