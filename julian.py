@@ -409,15 +409,15 @@ class Julian(object):
     def _st(self, val):
         assert isinstance(val, mpf)
         Julian.fp.digits(1)  # We'll display to the nearest tenth second
-        if val < 0:
-            return "Julian(%s)" % Julian.fp.fix(val)
+        if val < 250000:
+            return self._units(val)
         y, M, d, h, m, s = self._to_date(val)
         try:
             t = ["%d %s %d" % (d, Julian.name_months[M], y)]
             if max(h,m,s) != 0:
                 t += [" %02d:%02d" % (h, m)]
                 if s != 0:
-                    t += [":" + Julian.fp.fix(s).strip()]
+                    t += [":%02d.%01d" % (int(s), int(((10*s)-(10*int(s)))/10)) ]
             return ''.join(t)
         except:
             msg = "%sDate representation cannot be calculated\n" + \
@@ -436,20 +436,25 @@ class Julian(object):
         h = mpf("24")
         Julian.fp.digits(3)
         f = Julian.fp.sig
-        if 0 <= val <= 1/m:
-            return f(s*val) + " seconds"
-        elif 1/m < val <= 1/h:
-            return f(m*val) + " minutes"
-        elif 1/h < val <= 1:
-            return f(h*val) + " hours"
-        elif 1 < val <= w:
-            return f(val)   + " days"
-        elif w < val <= mo:
-            return f(val/w) + " weeks"
-        elif mo < val <= y:
-            return f(val/mo) + " months"
+        if val < 0:
+            sign = -1
+            val = abs(val)
         else:
-            return f(val/y) + " years"
+            sign = 1
+        if 0 <= val <= 1/m:
+            return f(sign*s*val) + " seconds"
+        elif 1/m < val <= 1/h:
+            return f(sign*m*val) + " minutes"
+        elif 1/h < val <= 1:
+            return f(sign*h*val) + " hours"
+        elif 1 < val <= w:
+            return f(sign*val)   + " days"
+        elif w < val <= mo:
+            return f(sign*val/w) + " weeks"
+        elif mo < val <= y:
+            return f(sign*val/mo) + " months"
+        else:
+            return f(sign*val/y) + " years"
 
     def __str__(self):
         if self.value == inf: return "Julian(inf)"
@@ -479,18 +484,19 @@ class Julian(object):
         return "Julian(" + repr(self.value) + ")"
 
     def _convert_to_mpf_or_mpi(self, n):
-        if isinstance(n, int) or isinstance(n, long) or isinstance(n, Zn):
+        if isinstance(n, int) or isinstance(n, long):
             return mpf(n)
-        elif isinstance(n, Rational):
+        if isinstance(n, Zn):
+            return mpf(int(n))
+        if isinstance(n, Rational):
             return n.mpf()
-        elif isinstance(n, mpc):
+        if isinstance(n, mpc):
             return abs(n)
-        elif isinstance(n, mpf) or isinstance(n, ctx_iv.ivmpf):
+        if isinstance(n, mpf) or isinstance(n, ctx_iv.ivmpf):
             return n
-        elif isinstance(n, Julian):
+        if isinstance(n, Julian):
             return n.value
-        else:
-            raise ValueError("%sBad type for operation with date/time" % fln())
+        raise ValueError("%sBad type for operation with date/time" % fln())
 
     def __add__(self, other):
         return Julian(self.value + self._convert_to_mpf_or_mpi(other))
@@ -509,6 +515,9 @@ class Julian(object):
         return Julian(self._convert_to_mpf_or_mpi(other) * self.value)
     def __rdiv__(self, other):
         raise Exception("%sMeaningless to divide by date/time" % fln())
+    def __neg__(self):
+        self.value = -self.value
+        return self
 
     def __int__(self):
         if isinstance(self.value, mpf):
