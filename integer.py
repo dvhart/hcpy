@@ -76,7 +76,7 @@ class Zn(object):
     # See the comments in the __neg__ method.
     negate_zero = 0
 
-    def __init__(self, value=0):
+    def __init__(self, value=0, proto=None):
         self.n = 0
         self.my_num_bits = Zn.num_bits
         self.my_is_signed = Zn.is_signed
@@ -680,55 +680,73 @@ class Zn(object):
         return self.value ** y
 
 class ipaddr(Zn):
-    def __init__(self, value=0, cidr=None):
-        Zn.__init__(self, value)
-        self.my_is_signed = False
-        if isinstance(value, ipaddr):
-            self.is_ipv4 = value.is_ipv4
-            self.is_ipv6 = value.is_ipv6
+    def __init__(self, value=0, cidr=None, ipvn=None, prototype=None):
+        Zn.__init__(self)
+        self.is_signed = False
+        self.cidr = None
+        if prototype is not None:
+            self.ipvn = prototype.ipvn
+            self.cidr = prototype.cidr
         else:
-            if self.value > 0xffffffff:
-                self.is_ipv4 = False
-                self.is_ipv6 = True
-                self.my_num_bits = 128
-            elif self.value > 0:
-                self.is_ipv4 = True
-                self.is_ipv6 = False
-                self.my_num_bits = 32
+            if isinstance(value, ipaddr):
+                self.ipvn = value.ipvn
+                self.cidr = value.cidr
+                value = value.value
             else:
-                self.is_ipv4 = True
-                self.is_ipv6 = True
-                self.my_num_bits = 128
-        if isinstance(cidr, str):
-            cidr = int(cidr)
-        if cidr is not None:
-            if cidr < 0:
-                raise ValueError("CIDR must not be negative")
-            if self.is_ipv4 and cidr > 32:
-                raise ValueError("CIDR for a IPv4 address cannot be greater than 32")
-            elif self.is_ipv6 and cidr > 128:
-                raise ValueError("CIDR for a IPv6 address cannot be greater than 128")
-        self.cidr = cidr
+                value = int(value)
+            if ipvn is None:
+                if value < 0xffffffff:
+                    self.ipvn = 'ipv4'
+                else:
+                    self.ipvn = 'ipv6'
+            else:
+                self.ipvn = ipvn
+            if isinstance(cidr, str):
+                cidr = int(cidr)
+            if cidr is not None:
+                if cidr < 0:
+                    raise ValueError("CIDR must not be negative")
+                if self.ipvn == 'ipv4' and cidr > 32:
+                    raise ValueError("CIDR for a IPv4 address cannot be greater than 32")
+                elif self.ipvn == 'ipv6' and cidr > 128:
+                    raise ValueError("CIDR for a IPv6 address cannot be greater than 128")
+            self.cidr = cidr
+        if self.ipvn == 'ipv4':
+            self.bits = 32
+        if self.ipvn == 'ipv6':
+            self.bits = 128
+        self.value = value
+        self._update()
 
     def __str__(self):
         'IP address representation'
-        pack = lambda n: n>0 and pack(n>>8)+chr(n&0xff) or ''
-
         cidr = ''
         if self.cidr is not None:
             cidr = '/%d'%self.cidr
-        v = pack(self.value)
-        if self.value == 0:
-            return '::'
-        if self.is_ipv6:
+        if self.ipvn == 'ipv6':
+            pack = lambda n: n>0 and pack(n>>8)+chr(n&0xff) or ''
+            v = pack(self.value)
             # ipv6 address?
             if len(v) < 16:
                 v = '\x00'*(16-len(v))+v
-            return socket.inet_ntop(socket.AF_INET6, v)+cidr
+            return ' %s%s' % (socket.inet_ntop(socket.AF_INET6, v), cidr)
         else:
-            if len(v) < 4:
-                v = '\x00'*(4-len(v))+v
-            return socket.inet_ntop(socket.AF_INET, v)+cidr
+            v = self.value
+            v = [ (v >> 24) & 0xff, (v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff ]
+            v = [ '%u'%c for c in v ]
+            return ' %s%s' % ('.'.join(v), cidr)
+
+    def __repr__(self):
+        return "ipaddr(%x/%d)" % (self.n, self.cidr)
+
+    def _check_type(self, v):
+        if not isint(v):
+            raise TypeError("Operations on IP addresses are limited to integers")
+        if self.ipvn == 'ipv6' or v.ipvn == 'ipv6':
+            ipvn = 'ipv6'
+        else:
+            ipvn = 'ipv4'
+        return v, ipaddr(0, max(self.cidr, v.cidr), ipvn)
 
     def __add__(self, y):
         y = self._check_type(y)

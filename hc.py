@@ -373,7 +373,7 @@ class Calculator(object):
         #ipv6 := (((hex_chars)?),':')+,((hex_chars)?),(':',((hex_chars)?))+
         ipv6cidr := ipv6,'/',[0-9],[0-9]?,[0-9]?
         ipv4cidr := ipv4,'/',[0-9],[0-9]?
-        ipv6 := '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
+        ipv6 := '::1' / '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
         ipv4 := [0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?
         number := scaler_number / compound_number
         compound_number := vector / array
@@ -3022,6 +3022,13 @@ class Calculator(object):
     def chomp(self, line):
         return self.chomppost.sub("", self.chomppre.sub("", line))
 
+    def flatten_tags(self, tags):
+        ft = []
+        while type(tags) == list and len(tags):
+            ft.append(tags[0][0])
+            tags = tags[0][3]
+        return ft
+
     def token(self):
         # snag the next token from the line
         line = self.read_line()
@@ -3031,7 +3038,7 @@ class Calculator(object):
             if not success:
                 raise ParseError("Not a command or value: '%s'"%line)
             #print "'%s' yielding '%s', '%s'" % (line, self.chomp(line[:next]),taglist)
-            yield self.chomp(line[:next]), taglist, line[next:]
+            yield self.chomp(line[:next]), self.flatten_tags(taglist), line[next:]
             # print "back from yield '%s'"%self.chomp(line[:next])
             line = self.chomp(line[next:])
             #line = line[next:]
@@ -3105,7 +3112,7 @@ class Calculator(object):
                         #print "num = '%s', arg = '%s'"%(num,arg)
                         if len(num) > 0:
                             try:
-                                num = self.number(self.chomp(arg))
+                                num = self.number(self.chomp(arg), tag)
                                 if num is not None:
                                     self.push(num)
                             except ValueError:

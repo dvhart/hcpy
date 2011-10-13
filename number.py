@@ -148,9 +148,12 @@ class Number(object):
     def __init__(self):
         pass
 
-    def __call__(self, s):
+    def __call__(self, s, tags=None):
         assert len(s) > 0
         suffix = 1
+        if tags is not None:
+            if 'ipaddr' in tags:
+                return self.ip(s, tags)
         if s != "now" and s != "today":
             if len(s) > 1 and s[:2] != "0x":
                 if s[-1] in suffixes_ln:
@@ -228,7 +231,7 @@ class Number(object):
         # is this is a vector
         return None
 
-    def ip(self, s):
+    def ip(self, s, tags=None):
         def unpack(s):
             v = '0x'
             for i in range(len(s)):
@@ -240,21 +243,24 @@ class Number(object):
             s = sparts[0]
             cidr = sparts[1]
         try:
-            mo = ip.match(s)
-            if cidr is None:
-                cidr = 32
-            if mo:
-                dquad = [ int(i) for i in mo.groups() if i ]
-                if max(dquad) > 255:
-                    return None
-                ps = socket.inet_pton(socket.AF_INET, s)
-                return ipaddr(unpack(ps), cidr)
-            else:
+            if tags is None:
+                tags = ['ipv4', 'ipv6']
+            if 'ipv4' in tags:
+                mo = ip.match(s)
+                if cidr is None:
+                    cidr = 32
+                if mo:
+                    dquad = [ int(i) for i in mo.groups() if i ]
+                    if max(dquad) > 255:
+                        return None
+                    ps = socket.inet_pton(socket.AF_INET, s)
+                    return ipaddr(unpack(ps), cidr, 'ipv4')
+            if 'ipv6' in tags:
                 if cidr is None:
                     cidr = 128
                 if ip6.match(s):
                     ps = socket.inet_pton(socket.AF_INET6, s)
-                    return ipaddr(unpack(ps), cidr)
+                    return ipaddr(unpack(ps), cidr, 'ipv6')
         except Exception, e:
             print e
             pass
