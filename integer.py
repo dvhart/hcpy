@@ -338,6 +338,12 @@ class Zn(object):
         return s
 
     def __repr__(self):
+        if debug():
+            if self.signed:
+                s = 's'
+            else:
+                s = 'u'
+            return "Zn(%d<%c%d>)"%(self.n, s, self.bits)
         return "Zn(%d)" % self.n
 
     def _sgn(self, x):

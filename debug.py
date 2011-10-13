@@ -44,12 +44,8 @@ def fln():
     else:
         return ""
 
-def set_debug(state):
+def debug(state=None):
     global debug_flag
-    if state != 0:
-        debug_flag = True
-    else:
-        debug_flag = False
-
-def get_debug():
+    if state is not None:
+        debug_flag = not (not state)
     return debug_flag

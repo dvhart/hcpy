@@ -2094,9 +2094,9 @@ class Calculator(object):
     Set or clear the debug flag based on x
         """
         if x != 0:
-            set_debug(True)
+            debug(True)
         else:
-            set_debug(False)
+            debug(False)
 
     def Show(self):
         """

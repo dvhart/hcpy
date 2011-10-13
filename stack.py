@@ -125,11 +125,19 @@ class Stack(object):
         s.reverse()
         s = s[:size]
         s.reverse()
-        fmt = "%%(index) %dd: %%(value)s" % (2+int(log10(max(len(s),1))))
+        if debug():
+            fmt = "%%(vtype)s | %%(index) %dd: %%(value)s" % (2+int(log10(max(len(s),1))))
+        else:
+            fmt = "%%(index) %dd: %%(value)s" % (2+int(log10(max(len(s),1))))
         m = []
         lens = len(s)
         for i in xrange(lens):
-            m.append(fmt % { 'index': size - i, 'value': func(s[i], i==(lens-1))})
+            if debug():
+                vtype = repr(s[i])[:16]
+                vtype += ' '*(16-len(vtype))
+                m.append(fmt % { 'vtype': vtype, 'index': size - i, 'value': func(s[i], i==(lens-1))})
+            else:
+                m.append(fmt % {'index': size - i, 'value': func(s[i], i==(lens-1))})
         s = '\n'.join(m)
         # Special treatment for the first four registers:  name them x, y,
         # z, t (as is done for HP calculators).
