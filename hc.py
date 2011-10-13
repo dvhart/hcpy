@@ -78,6 +78,8 @@ from mpformat import mpFormat
 from integer import Zn, ipaddr
 from julian import Julian
 import constants
+import console
+
 # You may create your own display (GUI, curses, etc.) by derivation.  The
 # default Display object just prints to stdout and should work with any
 # console.
@@ -3260,6 +3262,7 @@ def main(argv):
     finished = False
     status = None
     opt, arg = ParseCommandLine()
+    console.set_title("Vrnn's Smrt Clcltr")
     calculator = Calculator(arg, opt)
     try:
         calculator.run()
