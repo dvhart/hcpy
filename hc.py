@@ -187,15 +187,11 @@ class Calculator(object):
             "julian"   : [self.ToJulian, 1], # Convert unix timestamp to julian
             "2hr"      : [self.hr, 1],    # Convert to decimal hour format
             "2hms"     : [self.hms, 1],   # Convert to hour/minute/second format
-            "ip"       : [self.ip, 1],    # Integer part of x
-            "fp"       : [self.Fp, 1],    # Fractional part of x
-            "re"       : [self.RealPart, 1],     # Real part of x
-            "im"       : [self.ImagPart, 1],     # Imaginary part of x
+            "fp"       : [self.first_part, 1],    # Integer part of x
+            "sp"       : [self.second_part, 1],    # Fractional part of x
 
             "inv"      : [self.reciprocal, 1], # reciprocal of x
             "~"        : [self.bit_negate, 1],   # Flip all the bits of x
-            "numer"    : [self.numerator, 1],    # Numerator of rational
-            "denom"    : [self.denominator, 1],  # Denominator of rational
             "split"    : [self.split, 1], # Take rational, complex, or interval apart
             "chop"     : [self.Chop, 1],  # Convert x to its displayed value
             "conj"     : [self.conj, 1],  # Complex conjugate of x
@@ -1864,64 +1860,6 @@ class Calculator(object):
             minutes = 0
         return hours + minutes/mpf(100) + seconds/mpf(10000)
 
-    def ip(self, x):
-        """
-    Usage: x ip
-
-    Returns the integer part of x
-        """
-        if isint(x):
-            return x
-        return Convert(x, INT)
-
-    def Fp(self, x):
-        """
-    Usage: x fp
-
-    Returns the fractional part of x
-        """
-        if isint(x):
-            return m.mpf(0)
-        return Convert(x, MPF) - self.ip(x).value
-
-    def RealPart(self, x):
-        """
-    Usage: x rp
-
-    Returns the real part of complex number x
-        """
-        if isinstance(x, m.mpc):
-            return x.real
-        else:
-            return x
-
-    def ImagPart(self, x):
-        """
-    Usage: x ip
-
-    Returns the imaginary part of complex number x
-        """
-        if isinstance(x, m.mpc):
-            return x.imag
-        else:
-            return x
-
-    def numerator(self, x):
-        """
-    Usage: x numer
-
-    Returns the numerator of x (casted as a rational)
-        """
-        return Convert(x, RAT).n
-
-    def denominator(self, x):
-        """
-    Usage: x denom
-
-    Returns the denominator of x (casted as a rational)
-        """
-        return Convert(x, RAT).d
-
     def split(self, x):
         """
     Usage: x split
@@ -1942,6 +1880,34 @@ class Calculator(object):
         else:
             msg = "%sapart requires rational, complex, or interval number"
             raise TypeError(msg % fln())
+
+    def first_part(self, x):
+        """
+    Usage: x fp
+
+    Returns the first part of any compound number:
+        Floating point => integer part
+        Complex        => real part
+        Rational       => numerator
+        Interval       => lower boundary
+        Julian         => first date
+        """
+        a,b = self.split(x)
+        return a
+
+    def second_part(self, x):
+        """
+    Usage: x sp
+
+    Returns the second part of any compound number:
+        Floating point => float part
+        Complex        => imaginary part
+        Rational       => denominator
+        Interval       => upper boundary
+        Julian         => last date
+        """
+        a,b = self.split(x)
+        return b
 
     def ToIV(self, y, x):
         """
