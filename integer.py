@@ -241,16 +241,25 @@ class Zn(object):
         if Zn.num_bits != 0:
             t = self._suffix()
         sign = ""
-        if self.n < 0: sign = "-"
+        #if self.n < 0: sign = "-"
         num_hex_digits, r = divmod(Zn.num_bits, 4)
         if r != 0: num_hex_digits += 1
-        s = hex(abs(self.n))[2:]        # Remove 0x
+        #s = hex(abs(self.n))[2:]        # Remove 0x
+        if self.n < 0:
+            v = Zn()
+            v.num_bits = self.num_bits
+            v.is_signed = False
+            v.value = self.n
+            s = hex(v.n)[2:]
+            sign = " "
+        else:
+            s = hex(self.n)[2:]
         if s[-1] == "L": s = s[:-1]     # Remove "L"
         if Zn.num_bits != 0:
             while len(s) < num_hex_digits:
                 s = "0" + s
-        if Zn.num_bits != 0:  assert len(s) == num_hex_digits
-        return sign + "0x" + s + t
+        if self.num_bits != 0:  assert len(s) == num_hex_digits
+        return "%s0x%s%s" % (sign, s, t)
 
     def __oct__(self):
         self._update()
@@ -258,16 +267,25 @@ class Zn(object):
         if Zn.num_bits != 0:
             t = self._suffix()
         sign = ""
-        if self.n < 0: sign = "-"
+        #if self.n < 0: sign = "-"
         num_oct_digits, r = divmod(Zn.num_bits, 3)
         if r != 0: num_oct_digits += 1
-        s = oct(abs(self.n))[1:]    # Remove leading zero
+        #s = oct(abs(self.n))[1:]    # Remove leading zero
+        if self.n < 0:
+            v = Zn()
+            v.num_bits = self.num_bits
+            v.is_signed = False
+            v.value = self.n
+            s = oct(v.n)[1:]
+            sign = " "
+        else:
+            s = oct(self.n)[1:]
         if s[0] == "o":  s = s[1:]  # Remove leading 'o' if present
         if Zn.num_bits != 0:
             while len(s) < num_oct_digits:
                 s = "0" + s
-        if Zn.num_bits != 0:  assert len(s) == num_oct_digits
-        return sign + "0o" + s + t
+        if self.num_bits != 0:  assert len(s) == num_oct_digits
+        return "%s0o%s%s" % (sign, s, t)
 
     def bin(self):
         'Binary representation'
@@ -276,16 +294,22 @@ class Zn(object):
         if Zn.num_bits != 0:
             t = self._suffix()
         sign = ""
-        if self.n < 0: sign = "-"
-        h = hex(abs(self.n))[2:]
-        while len(h) > 1 and h[0] == "0":  # Remove leading 0's
-            h = h[1:]
-        s = ""
-        for digit in h:
-            if digit != "L":
-                s += hexdigits[digit]
-        if Zn.num_bits != 0:
-            while len(s) > Zn.num_bits:  # Trim leading 0's to get num bits
+        #if self.n < 0: sign = "-"
+        #h = hex(abs(self.n))[2:]
+        if self.n < 0:
+            v = Zn()
+            v.num_bits = self.num_bits
+            v.is_signed = False
+            v.value = self.n
+            s = bin(v.n)[2:]
+            sign = " "
+        else:
+            s = bin(self.n)[2:]
+        while len(s) > 1 and s[0] == "0":  # Remove leading 0's
+            s = s[1:]
+        if s[-1] == "L": s = s[:-1]     # Remove "L"
+        if self.num_bits != 0:
+            while len(s) > self.num_bits:  # Trim leading 0's to get num bits
                 assert s[0] == "0", "s = '%s'" % s
                 s = s[1:]
         if Zn.num_bits == 0:
@@ -298,9 +322,9 @@ class Zn(object):
                 # Add leading zeros if length is not == num bits
                 while len(s) < Zn.num_bits:
                     s = "0" + s
-        if Zn.num_bits != 0:
-            assert len(s) == Zn.num_bits, "s='%s'  %d bits" % (s, Zn.num_bits)
-        return sign + "0b" + s + t
+        if self.num_bits != 0:
+            assert len(s) == self.num_bits, "s='%s'  %d bits" % (s, self.num_bits)
+        return "%s0b%s%s" % (sign, s, t)
 
     def __int__(self):
         return self.n
