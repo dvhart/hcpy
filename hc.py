@@ -180,6 +180,7 @@ class Calculator(object):
             "C"        : [self.Cast_c, 1],  # Convert to complex number
             "T"        : [self.Cast_t, 1],  # Convert to time/date
             "V"        : [self.Cast_v, 1],  # Convert to interval number
+            "cast"     : [self.cast, 1],  # Convert integer to current C int type
             "IP"       : [self.IP, 1],  # Convert to ip address
             "2deg"     : [self.ToDegrees, 1],  # Convert x to radians
             "2rad"     : [self.ToRadians, 1],  # Convert x to degrees
@@ -280,7 +281,7 @@ class Calculator(object):
             "be"       : [nop, 0],  # set big-endian integer mode
             "htonl"    : [self.ntohl, 1],  # return htonl x
             "ntohl"    : [self.ntohl, 1],  # return ntohl x
-            "=net"     : [nop, 3],  # check to see if z and y are on same subnet x
+            "=net"     : [self.samenet, 2],  # check to see if y and x are on the same subnet
 
             # Other stuff
             "?"        : [self.help, 0],  # Help command
@@ -1533,18 +1534,28 @@ class Calculator(object):
             raise TypeError("ntohl requires an integer argument")
         return htonl(int(x))
 
-    def netmask(self, x, y):
+    def netmask(self, y, x):
         """
     Usage: y x netmask
 
-    Adds netmask information to an IP address.  In the netmask form,
-    use something like '192.168.2.50 192.168.2.255 netmask'.
+    Adds netmask information to an IPv4 address.  In the netmask form,
+    use something like '192.168.2.50 255.255.255.0 netmask'.  Do not
+    use this form for IPv6 addresses, use cidr.
 
     An alternative is to enter the IP address with the netmask
     already appended in cidr format such as '192.168.2.50/24'.
         """
         if not isint(x):
-            raise TypeError("ntohl requires an integer argument")
+            raise TypeError("netmask requires an integer argument")
+        if not isint(y):
+            raise TypeError("cidr requires an integer (or IP) argument for IP address")
+        if not isinstance(x, ipaddr):
+            x1 = ipaddr(x, ipvn='ipv4')
+        x1 = ~x
+        z = self.bits(x1.value)
+        if (1 << z)-1 != x1.value:
+            raise ValueError("Invalid netmask %s" % str(x))
+        return ipaddr(y, (32-z))
 
     def cidr(self, y, x):
         """
@@ -1561,6 +1572,10 @@ class Calculator(object):
         if not isint(y):
             raise TypeError("cidr requires an integer (or IP) argument for IP address")
         return ipaddr(y, x)
+
+    def samenet(self, y, x):
+        pass
+
 
     ############################################################################
     # Stack callback functions
@@ -1788,6 +1803,22 @@ class Calculator(object):
     Returns x casted as an interval value
         """
         return self.Cast(x, MPI)
+
+    def cast(self, x):
+        """
+    Usage: x cast
+
+    Returns x casted as an int of the current "C" stype integer type
+        """
+        return Zn(int(x))
+
+    def IP(self, x):
+        """
+    Usage: IP
+
+    Convert integer to an IP address
+        """
+        return ipaddr(x)
 
     def ToDegrees(self, x):
         """
@@ -2225,14 +2256,6 @@ class Calculator(object):
     Set binary mode for display of integers
         """
         self.cfg["integer_mode"] = "bin"
-
-    def IP(self, x):
-        """
-    Usage: IP
-
-    Convert integer to an IP address
-        """
-        return ipaddr(x)
 
     def iva(self):
         """
