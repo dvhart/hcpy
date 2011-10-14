@@ -679,6 +679,8 @@ class Calculator(object):
         self.TypeCheck(x, y)
         try:
             return y + x
+        except TypeError, e:
+            raise e
         except Exception, e:
             self.errors.append(str(e))
             return x + y
@@ -772,7 +774,9 @@ class Calculator(object):
             return (Zn(n)//Zn(d)) % self.cfg["modulus"]
         self.TypeCheck(n, d)
         if isint(n) and isint(d):
-            return Zn(n) // Zn(d)
+            if not isinstance(n, Zn): n = Zn(n)
+            if not isinstance(d, Zn): d = Zn(d)
+            return n // d
         n = Convert(n, MPF)
         d = Convert(d, MPF)
         return int(m.floor(n/d))
@@ -785,7 +789,9 @@ class Calculator(object):
         """
         self.TypeCheck(y, x)
         if isint(y) and isint(x):
-            return Zn(y) & Zn(x)
+            if not isinstance(y, Zn): y = Zn(y)
+            if not isinstance(x, Zn): x = Zn(x)
+            return y & x
         y = Convert(y, INT)
         x = Convert(x, INT)
         return y & x
@@ -798,7 +804,9 @@ class Calculator(object):
         """
         self.TypeCheck(y, x)
         if isint(y) and isint(x):
-            return Zn(y) | Zn(x)
+            if not isinstance(y, Zn): y = Zn(y)
+            if not isinstance(x, Zn): x = Zn(x)
+            return y | x
         y = Convert(y, INT)
         x = Convert(x, INT)
         return y | x
@@ -811,7 +819,9 @@ class Calculator(object):
         """
         self.TypeCheck(y, x)
         if isint(y) and isint(x):
-            return Zn(y) ^ Zn(x)
+            if not isinstance(y, Zn): y = Zn(y)
+            if not isinstance(x, Zn): x = Zn(x)
+            return y ^ x
         y = Convert(y, INT)
         x = Convert(x, INT)
         return y ^ x
@@ -824,7 +834,9 @@ class Calculator(object):
         """
         self.TypeCheck(y, x)
         if isint(y) and isint(x):
-            return Zn(y) << Zn(x)
+            if not isinstance(y, Zn): y = Zn(y)
+            if not isinstance(x, Zn): x = Zn(x)
+            return y << x
         y = Convert(y, INT)
         x = Convert(x, INT)
         return y << x
@@ -837,7 +849,9 @@ class Calculator(object):
         """
         self.TypeCheck(y, x)
         if isint(y) and isint(x):
-            return Zn(y) >> Zn(x)
+            if not isinstance(y, Zn): y = Zn(y)
+            if not isinstance(x, Zn): x = Zn(x)
+            return y >> x
         y = Convert(y, INT)
         x = Convert(x, INT)
         return y >> x
@@ -1868,7 +1882,9 @@ class Calculator(object):
     complex, rational, interval, Julian, vectors and floats
         """
         if isinstance(x, mpf):
-            return self.ip(x), self.Fp(x)
+            ip = Convert(x, INT)
+            fp = Convert(x, MPF)
+            return ip, fp - ip.value
         if isinstance(x, mpc):
             return x.real, x.imag
         elif isinstance(x, Rational):
