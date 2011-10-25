@@ -328,6 +328,7 @@ class Calculator(object):
             "hex"      : [self.hex, 0],  # Hex display for integers
             "oct"      : [self.oct, 0],  # Octal for integers
             "bin"      : [self.bin, 0],  # Binary display for integers
+            "roman"    : [self.roman, 0],  # roman numeral display for integers
             # The none display mode is primarily intended for debugging.  It
             # displays makes the mpmath numbers display in their native formats.
 
@@ -377,7 +378,9 @@ class Calculator(object):
         ipv4cidr := ipv4,'/',[0-9],[0-9]?
         ipv6 := '::1' / '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
         ipv4 := [0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?
-        number := scaler_number / compound_number
+        number := roman_number / scaler_number / compound_number
+        roman_number := roman_numeral / roman_numeral,roman_numeral
+        roman_numeral := [Mm] / [Dd] / [Cc] / [Ll] / [Xx] / [Vv] / [Ii]
         compound_number := vector / array
         scaler_number := julian / complex_number / imag_number / real_number
         complex_number := (real_number_ns,('+'/'-'),imag_number) / ('(',real_number,',',real_number,')') / ('(', real_number, (',', ows)?, '<', real_number, ')')
@@ -2258,6 +2261,14 @@ class Calculator(object):
         """
         self.cfg["integer_mode"] = "bin"
 
+    def roman(self):
+        """
+    Usage: roman
+
+    Set roman numeral mode for display of integers
+        """
+        self.cfg["integer_mode"] = "roman"
+
     def iva(self):
         """
     Usage: iva
@@ -2607,6 +2618,8 @@ class Calculator(object):
                 s = oct(x)
             elif im == "bin":
                 s = x.bin()
+            elif im == "roman":
+                s = x.roman()
             else:
                 raise Exception("%s'%s' integer mode is unrecognized" % (im, fln()))
             # Prepend a space or + if this is being done in the mpFormat

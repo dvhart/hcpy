@@ -325,6 +325,57 @@ class Zn(object):
             assert len(s) == self.num_bits, "s='%s'  %d bits" % (s, self.num_bits)
         return "%s0b%s%s" % (sign, s, t)
 
+    def roman(self):
+        self._update()
+        sign = " "
+        v = self.n
+        if v < 0:
+            sign = "-"
+        v = abs(v)
+        s = []
+        if v > 3999:
+            return str(self)
+        while v >= 1000:
+            s.append('M')
+            v -= 1000
+        if v >= 900:
+            s.append('CM')
+            v -= 900
+        if v >= 500:
+            s.append('D')
+            v -= 500
+        if v >= 400:
+            s.append('CD')
+            v -= 400
+        while v >= 100:
+            s.append('C')
+            v -= 100
+        if v >= 90:
+            s.append('XC')
+            v -= 90
+        if v >= 50:
+            s.append('L')
+            v -= 50
+        if v >= 40:
+            s.append('XL')
+            v -= 40
+        while v >= 10:
+            s.append('X')
+            v -= 10
+        if v >= 9:
+            s.append('IX')
+            v -= 9
+        if v >= 5:
+            s.append('V')
+            v -= 5
+        if v >= 4:
+            s.append('IV')
+            v -= 4
+        while v >= 1:
+            s.append('I')
+            v -= 1
+        return "%s%s" % (sign, ''.join(s))
+
     def __int__(self):
         return self.n
 
