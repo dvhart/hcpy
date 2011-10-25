@@ -47,12 +47,6 @@ import socket
 try: from pdb import xx  # pdb.set_trace is xx; easy to find for debugging
 except: pass
 
-hexdigits = {
-    "0" : "0000", "1" : "0001", "2" : "0010", "3" : "0011", "4" : "0100",
-    "5" : "0101", "6" : "0110", "7" : "0111", "8" : "1000", "9" : "1001",
-    "a" : "1010", "b" : "1011", "c" : "1100", "d" : "1101", "e" : "1110",
-    "f" : "1111"}
-
 def isint(x):
     return isinstance(x, int) or isinstance(x, long) or isinstance(x, Zn)
 
@@ -78,8 +72,17 @@ class Zn(object):
 
     def __init__(self, value=0, proto=None):
         self.n = 0
-        self.my_num_bits = Zn.num_bits
-        self.my_is_signed = Zn.is_signed
+        if proto is not None:
+            self.num_bits = proto.num_bits
+            self.is_signed = proto.is_signed
+        elif isinstance(value, Zn):
+            self.num_bits = value.num_bits
+            self.is_signed = value.is_signed
+        else:
+            self.num_bits = Zn.num_bits
+            self.is_signed = Zn.is_signed
+        if self.num_bits > 0:
+            self.base = 2**self.num_bits
         if type(value) == str:
             self._set_from_string(value)
         elif isinstance(value, int) or isinstance(value, long):
@@ -125,7 +128,7 @@ class Zn(object):
         doc="Set to True for C type integer division")
 
     def get_bits(self):
-        return Zn.num_bits
+        return self.num_bits
 
     def set_bits(self, bits):
         if not isinstance(bits, int) and \
@@ -136,25 +139,25 @@ class Zn(object):
         if bits < 0:
             msg = "%sNumber of bits in integer must be >= 0"
             raise ValueError(msg % fln())
-        if bits != self.my_num_bits:
-            Zn.num_bits = bits
-            self.my_num_bits = bits
+        if bits != self.num_bits:
+            self.num_bits = bits
+            self.num_bits = bits
             if bits == 0:
-                Zn.base = 0 # Will cause 0 div if we use for % calc
+                self.base = 0 # Will cause 0 div if we use for % calc
             else:
-                Zn.base = 2**bits
+                self.base = 2**bits
             self._update()
 
     bits = property(get_bits, set_bits, \
         doc="Number of bits in integer (0 for unlimited)")
 
     def get_signed(self):
-        return Zn.is_signed
+        return self.is_signed
 
     def set_signed(self, signed):
         if signed != True and signed != False:
             raise ValueError("%ssigned must be True or False" % fln())
-        Zn.is_signed = signed
+        self.is_signed = signed
         self._update()
 
     signed = property(get_signed, set_signed, doc="Signed if True")
@@ -194,68 +197,70 @@ class Zn(object):
 
     def _update(self):
         "The object's state has changed."
-        if Zn.num_bits != 0:
-            assert Zn.base == 2**Zn.num_bits
-        self.my_num_bits  = Zn.num_bits
-        self.my_is_signed = Zn.is_signed
-        if Zn.num_bits == 0:
-            Zn.is_signed = True
-            self.my_is_signed = True
+        if self.num_bits != 0:
+            assert self.base == 2**self.num_bits
+        if self.num_bits == 0:
+            self.is_signed = True
         else:
-            if Zn.is_signed:
-                self.n &= (Zn.base - 1)  # Mask off the desired bits
+            if self.is_signed:
+                self.n &= (self.base - 1)  # Mask off the desired bits
                 # If high bit is on, then convert to negative in 2's
                 # complement
-                if self.n & 2**(Zn.num_bits - 1):
-                    self.n -= Zn.base
+                if self.n & 2**(self.num_bits - 1):
+                    self.n -= self.base
             else:
-                self.n %= Zn.base
+                self.n &= (self.base-1)
         # Check our invariants
-        if Zn.num_bits == 0:
-            assert Zn.is_signed == True
+        if self.num_bits == 0:
+            assert self.is_signed == True
         else:
-            if Zn.is_signed:
-                assert -(Zn.base >> 1) <= self.n < (Zn.base >> 1)
+            if self.is_signed:
+                assert -(self.base >> 1) <= self.n < (self.base >> 1)
             else:
-                assert 0 <= self.n < Zn.base
-        assert self.my_num_bits  == Zn.num_bits
-        assert self.my_is_signed == Zn.is_signed
+                assert 0 <= self.n < self.base
 
-    def _check_type(self, y):
+    def _auto_cast(self, y):
         '''y must be a Zn object for us to interoperate with.  We can
         convert regular integers.
         '''
-        if isinstance(y, int) or isinstance(y, long):
-            y = Zn(y)
-        elif not isinstance(y, Zn):
-            return False
-        if y.bits != Zn.num_bits:
-            y._update()
-        if self.bits != Zn.num_bits:
-            self._update()
-        return y
+        if isint(y):
+            p = Zn()
+            p.is_signed = y.is_signed and self.is_signed
+            p.num_bits = max(y.num_bits, self.num_bits)
+            y1 = Zn(y, proto=p)
+            x1 = Zn(self, proto=p)
+            return y1, x1
+        elif isinstance(y, mpf):
+            return y, mpf(self.value)
+        elif isinstance(y, mpc):
+            return y, mpc(self.value, 0)
+        elif isinstance(y, Julian):
+            return y, Julian(self.value)
+        elif isinstance(y, ctx_iv.ivmpf):
+            return y, mpi(self.value)
+        elif isinstance(y, Rational):
+            return y, Rational(self.value, 1)
+        else:
+            return y, self.value
 
     def __hex__(self):
         self._update()
         t = ""
-        if Zn.num_bits != 0:
+        if self.num_bits != 0:
             t = self._suffix()
         sign = ""
-        #if self.n < 0: sign = "-"
-        num_hex_digits, r = divmod(Zn.num_bits, 4)
+        num_hex_digits, r = divmod(self.num_bits, 4)
         if r != 0: num_hex_digits += 1
-        #s = hex(abs(self.n))[2:]        # Remove 0x
-        if self.n < 0:
-            v = Zn()
-            v.num_bits = self.num_bits
-            v.is_signed = False
-            v.value = self.n
-            s = hex(v.n)[2:]
+        v = self.n
+        if v < 0:
             sign = " "
-        else:
-            s = hex(self.n)[2:]
+            if self.is_signed and self.num_bits != 0:
+                v = self.n
+                v &= (self.base - 1)  # Mask off the desired bits
+                v |= (2**(self.bits - 1))
+        s = hex(v)[2:]
         if s[-1] == "L": s = s[:-1]     # Remove "L"
-        if Zn.num_bits != 0:
+        if self.num_bits != 0:
             while len(s) < num_hex_digits:
                 s = "0" + s
         if self.num_bits != 0:  assert len(s) == num_hex_digits
@@ -264,24 +269,21 @@ class Zn(object):
     def __oct__(self):
         self._update()
         t = ""
-        if Zn.num_bits != 0:
+        if self.num_bits != 0:
             t = self._suffix()
         sign = ""
-        #if self.n < 0: sign = "-"
-        num_oct_digits, r = divmod(Zn.num_bits, 3)
+        num_oct_digits, r = divmod(self.num_bits, 3)
         if r != 0: num_oct_digits += 1
-        #s = oct(abs(self.n))[1:]    # Remove leading zero
-        if self.n < 0:
-            v = Zn()
-            v.num_bits = self.num_bits
-            v.is_signed = False
-            v.value = self.n
-            s = oct(v.n)[1:]
+        v = self.n
+        if v < 0:
             sign = " "
-        else:
-            s = oct(self.n)[1:]
+            if self.is_signed and self.num_bits != 0:
+                v = self.n
+                v &= (self.base - 1)  # Mask off the desired bits
+                v |= (2**(self.bits - 1))
+        s = oct(v)[1:]
         if s[0] == "o":  s = s[1:]  # Remove leading 'o' if present
-        if Zn.num_bits != 0:
+        if self.num_bits != 0:
             while len(s) < num_oct_digits:
                 s = "0" + s
         if self.num_bits != 0:  assert len(s) == num_oct_digits
@@ -291,20 +293,17 @@ class Zn(object):
         'Binary representation'
         self._update()
         t = ""
-        if Zn.num_bits != 0:
+        if self.num_bits != 0:
             t = self._suffix()
         sign = ""
-        #if self.n < 0: sign = "-"
-        #h = hex(abs(self.n))[2:]
-        if self.n < 0:
-            v = Zn()
-            v.num_bits = self.num_bits
-            v.is_signed = False
-            v.value = self.n
-            s = bin(v.n)[2:]
+        v = self.n
+        if v < 0:
             sign = " "
-        else:
-            s = bin(self.n)[2:]
+            if self.is_signed and self.num_bits != 0:
+                v = self.n
+                v &= (self.base - 1)  # Mask off the desired bits
+                v |= (2**(self.bits - 1))
+        s = bin(v)[2:]
         while len(s) > 1 and s[0] == "0":  # Remove leading 0's
             s = s[1:]
         if s[-1] == "L": s = s[:-1]     # Remove "L"
@@ -312,15 +311,15 @@ class Zn(object):
             while len(s) > self.num_bits:  # Trim leading 0's to get num bits
                 assert s[0] == "0", "s = '%s'" % s
                 s = s[1:]
-        if Zn.num_bits == 0:
+        if self.num_bits == 0:
             while len(s) > 1 and s[0] == "0":  # Remove leading 0's
                 s = s[1:]
         else:
-            if len(s) > Zn.num_bits:
-                s = s[len(s) - Zn.num_bits:]
+            if len(s) > self.num_bits:
+                s = s[len(s) - self.num_bits:]
             else:
                 # Add leading zeros if length is not == num bits
-                while len(s) < Zn.num_bits:
+                while len(s) < self.num_bits:
                     s = "0" + s
         if self.num_bits != 0:
             assert len(s) == self.num_bits, "s='%s'  %d bits" % (s, self.num_bits)
@@ -340,22 +339,22 @@ class Zn(object):
 
     def _suffix(self):
         fmt = Zn.space + Zn.left + "%s%d" + Zn.right
-        if Zn.is_signed:
-            return fmt % ("s", Zn.num_bits)
+        if self.is_signed:
+            return fmt % ("s", self.num_bits)
         else:
-            return fmt % ("u", Zn.num_bits)
+            return fmt % ("u", self.num_bits)
 
     def __str__(self):
         self._update()
-        if Zn.num_bits == 0:
+        if self.num_bits == 0:
             s = str(self.value)
         else:
             t = self._suffix()
-            if Zn.is_signed:
+            if self.is_signed:
                 s = str(self.value) + t
             else:
                 if self.n < 0:
-                    s = str(Zn.base + self.n)
+                    s = str(self.base + self.n)
                 else:
                     s = str(self.value)
                 s += t
@@ -377,7 +376,7 @@ class Zn(object):
     def __abs__(self):
         'See comments under __neg__ for some subleties.'
         msg = "%sCan't take the absolute value of the most negative number"
-        if Zn.is_signed == True and self.n == -(Zn.base >> 1):
+        if self.is_signed == True and self.n == -(self.base >> 1):
             raise ValueError(msg % fln())
         return Zn(abs(self.n))
 
@@ -445,8 +444,8 @@ class Zn(object):
         around with numbers like 2**(n-1) and flip between the signed
         an unsigned values and see what happened.
         '''
-        if self.n == 0 and Zn.negate_zero and Zn.is_signed:
-            return Zn(-(Zn.base >> 1))
+        if self.n == 0 and Zn.negate_zero and self.is_signed:
+            return Zn(-(self.base >> 1))
         return Zn(-self.n)
 
     def __coerce__(self, other):
@@ -464,10 +463,10 @@ class Zn(object):
         return None
 
     def __add__(self, y):
-        z = self._check_type(y)
-        if z:
-            return Zn(self.value + z.value)
-        return self.value + y
+        y1, x1 = self._auto_cast(y)
+        if isinstance(y1, Zn) and isinstance(x1, Zn):
+            return Zn(x1.value + y1.value, proto=x1)
+        return x1 + y1
 
     def __iadd__(self, y):
         z = self._check_type(y)
@@ -483,10 +482,10 @@ class Zn(object):
         return self.value + y
 
     def __sub__(self, y):
-        z = self._check_type(y)
-        if z:
-            return Zn(self.value - z.value)
-        return self.value - y
+        y1, x1 = self._auto_cast(y)
+        if isinstance(y1, Zn) and isinstance(x1, Zn):
+            return Zn(x1.value - y1.value, proto=x1)
+        return x1 - y1
 
     def __isub__(self, y):
         z = self._check_type(y)
@@ -502,52 +501,61 @@ class Zn(object):
         return -self.value + y
 
     def __mul__(self, y):
-        z = self._check_type(y)
-        if z:
-            return Zn(self.value * z.value)
-        return self.value * y
+        y1, x1 = self._auto_cast(y)
+        if isinstance(y1, Zn) and isinstance(x1, Zn):
+            return Zn(x1.value * y1.value, proto=x1)
+        return x1 * y1
 
     def __imul__(self, y):
-        z = self._check_type(y)
+        y1, x1 = self._auto_cast(y)
         if z:
             self.value *= z.value
             return self
         return self.value * y
+        self.is_signed = x1.is_signed
+        self.num_bits = x1.num_bits
+        self.value = x1.value
+        return self
 
     def __rmul__(self, y):
-        z = self._check_type(y)
-        if z:
-            return Zn(self.value * z.value)
-        return self.value * y
+        y1, x1 = self._auto_cast(y)
+        if isinstance(y1, Zn) and isinstance(x1, Zn):
+            return Zn(x1.value * y1.value, proto=x1)
+        return x1 * y1
 
     def __div__(self, y):
-        y = self._check_type(y)
+        y1, x1 = self._auto_cast(y)
         if Zn.use_C_division:
-            if Zn.is_signed == True:
-                sign = self._sgn(self.n)*self._sgn(y.n)
-                if Zn.num_bits != 0:
-                    assert -(Zn.base >> 1) <= self.n < (Zn.base >> 1)
-                    assert -(Zn.base >> 1) <= y.n    < (Zn.base >> 1)
-                    m = Zn.base >> 1
-                    return Zn(sign*((abs(self.value) % m)//(abs(y.value) % m)))
+            if x1.is_signed == True:
+                sign = x1._sgn(x1.n)*x1._sgn(y1.n)
+                if x1.num_bits != 0:
+                    assert -(x1.base >> 1) <= x1.n < (x1.base >> 1)
+                    assert -(x1.base >> 1) <= y1.n    < (x1.base >> 1)
+                    m = x1.base >> 1
+                    return Zn(sign*((abs(x1.value) % m)//(abs(y1.value) % m)), proto=x1)
                 else:
-                    return Zn(sign*(abs(self.value)//abs(y.value)))
+                    return Zn(sign*(abs(x1.value)//abs(y1.value)), proto=x1)
             else:
-                if Zn.num_bits != 0:
-                    assert 0 <= self.n < Zn.base
-                    assert 0 <= y.n    < Zn.base
-                return Zn(self.n//y.n)
+                if x1.num_bits != 0:
+                    assert 0 <= x1.n < x1.base
+                    assert 0 <= y1.n    < x1.base
+                return Zn(x1.n//y1.n, proto=x1)
         else:
-            return Zn(self.value//y.value)
+            return Zn(x1.value//y1.value, proto=x1)
 
     def __idiv__(self, y):
-        y = self._check_type(y)
+        y1, x1 = self._auto_cast(y)
+        if not isinstance(y1, Zn) or not isinstance(x1, Zn):
+            raise TypeError("Invalid types to integer __idiv__")
         if Zn.use_C_division:
-            sign_x = self._sgn(self.value)
-            sign_y = self._sgn(y.value)
-            self.value = sign_x*sign_y*(abs(self.value)//abs(y.value))
+            sign_x = x1._sgn(x1.value)
+            sign_y = x1._sgn(y1.value)
+            x1.value = sign_x*sign_y*(abs(x1.value)//abs(y1.value))
         else:
-            self.value //= y.value
+            x1.value //= y1.value
+        self.is_signed = x1.is_signed
+        self.num_bits = x1.num_bits
+        self.value = x1.value
         return self
 
     def __rdiv__(self, y):
@@ -694,8 +702,8 @@ class Zn(object):
         return Zn(~self.value)
 
     def __truediv__(self, y):
-        if isinstance(y, Zn): y = y.value
-        return mpf(self.value) / mpf(y)
+        if isinstance(y, Zn): y = mpf(y.value)
+        return self.value / y
 
     def __pow__(self, y):
         z = self._check_type(y)

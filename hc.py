@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #----------------------------------
 # Python library stuff
+from __future__ import division
 import sys, getopt, os, time, readline
 from socket import htonl
 from atexit import register as atexit
@@ -735,7 +736,7 @@ class Calculator(object):
                 raise ValueError("%sCan't divide by zero" % fln())
         if isint(y) and isint(x):
             if self.cfg["no_rationals"]:
-                return mpf(y)/mpf(x)
+                return y/x
             else:
                 q = Rational(int(y), int(x))
                 if q.d == 1:
@@ -745,7 +746,7 @@ class Calculator(object):
         try:
             return y/x
         except:
-            return (1/x)*y
+            return 1/(x/y)
 
     def Mod(self, n, d):
         """
@@ -2913,17 +2914,17 @@ class Calculator(object):
                 msg = "%sInteger for int command must be > 0"
                 raise ValueError(msg % fln())
             Number.bits = n
-            Zn().bits = n
+            Zn.num_bits = n
         else:
             Number.bits = 0
-            Zn().bits = 0
+            Zn.num_bits = 0
         # TODO This is ugly and needs refactoring...
         if cmd == 's':
             Number.signed = True
-            Zn().signed = True
+            Zn.is_signed = True
         else:
             Number.signed = False
-            Zn().signed = False
+            Zn.is_signed = False
 
     def C_sX(self, val):
         """
@@ -3129,8 +3130,11 @@ class Calculator(object):
                             try:
                                 retval = self.commands_dict[arg][0](*args)
                             except (ValueError, TypeError), e:
-                                self.errors.append(str(e))
                                 retval = args
+                                if debug():
+                                    self.errors.append(traceback.format_exc())
+                                else:
+                                    self.errors.append(str(e))
                         except (IndexError, TypeError), e:
                             self.errors.append(str(e))
                             continue
