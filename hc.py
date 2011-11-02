@@ -2,17 +2,13 @@
 # :exec set tabstop=4 softtab expandtab encoding=utf8 :
 
 """
-Provide the basic calculational engine for the calculator.
-
-$Id: hc.py 1.87 2009/03/17 18:54:09 donp Exp $
-
----------------------------------------------------------------------------
 Copyright (c) 2009, Don Peterson
+Copyright (c) 2011, Vernon Mauery
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+Redistribution and use in source and binary forms, with or
+without modification, are permitted provided that the following
+conditions are met:
 
 * Redistributions of source code must retain the above copyright
 notice, this list of conditions and the following disclaimer.
@@ -20,9 +16,9 @@ notice, this list of conditions and the following disclaimer.
 copyright notice, this list of conditions and the following
 disclaimer in the documentation and/or other materials provided
 with the distribution.
-* Neither the name of the <ORGANIZATION> nor the names of its
-contributors may be used to endorse or promote products derived
-from this software without specific prior written permission.
+* The names of the contributors may not be used to endorse or
+promote products derived from this software without specific
+prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -287,6 +283,7 @@ class Calculator(object):
             # Other stuff
             "?"        : [self.help, 0],  # Help command
             "help"     : [self.help, 0],  # Help command
+            "warranty" : [self.warranty, 0],  # Show warranty
             "quit"     : [self.quit, 0],  # Exit the program
             "deg"      : [self.deg, 0],  # Set degrees for angle mode
             "rad"      : [self.rad, 0],  # Set radians for angle mode
@@ -3224,12 +3221,6 @@ class Calculator(object):
                 printed = 0
         print "\n"
         print "Delimiters are space, tab, and newline.\n"
-        desired_functions = [ 'char', 'erf', 'erfc', 'expm', 'gcd', 'j0', 'j1',
-        'jn', 'ld', 'ldb', 'lg', 'lgamma', 'lnp1', 'rl', 'rlb', 'sr', 'srb',
-        'y0', 'y1', 'yn', '%t', 'le', 'be', 'htonl', 'ntohl', '=net']
-        unimplemented = [ k for k in desired_functions if k not in self.commands_dict.keys()]
-        print "unimplemented functions may include:", ' '.join(unimplemented)
-
 
     def list_constants(self):
         """
@@ -3246,7 +3237,8 @@ class Calculator(object):
 
     Displays the license and warranty information
         """
-        print license
+        global __doc__
+        print __doc__
 
     def todo(self):
         """
