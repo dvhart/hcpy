@@ -66,14 +66,9 @@ apt-get install python-mpmath python-simpleparse
 
 #----------------------------------
 # Modules needed in our package
-from rational import Rational
-from convert import *
-from cmddecod import CommandDecode
+from numeric import *
 from stack import Stack
-from number import Number
 from mpformat import mpFormat
-from integer import Zn, ipaddr
-from julian import Julian
 import constants
 import console
 
@@ -104,12 +99,6 @@ def nop(*args):
     """
     return None
 
-
-def isint_native(x):
-    return isinstance(x, int) or isinstance(x, long)
-
-def isint(x):
-    return isinstance(x, int) or isinstance(x, long) or isinstance(x, Zn)
 
 class Calculator(object):
     def __init__(self, arguments, options):
@@ -375,9 +364,10 @@ class Calculator(object):
         ipv4cidr := ipv4,'/',[0-9],[0-9]?
         ipv6 := '::1' / '::' / ((hex_chars,':')+,(':'?,hex_chars)+)
         ipv4 := [0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?,'.',[0-9],[0-9]?,[0-9]?
-        number := roman_number / scaler_number / compound_number
+        number := roman_number / rational_number / scaler_number / compound_number
         roman_number := roman_numeral / roman_numeral,roman_numeral
         roman_numeral := [Mm] / [Dd] / [Cc] / [Ll] / [Xx] / [Vv] / [Ii]
+        rational_number := dec_whole , '/' , dec_whole
         compound_number := vector / array
         scaler_number := julian / complex_number / imag_number / real_number
         complex_number := (real_number_ns,('+'/'-'),imag_number) / ('(',real_number,',',real_number,')') / ('(', real_number, (',', ows)?, '<', real_number, ')')
@@ -1745,9 +1735,9 @@ class Calculator(object):
             except:
                 pass
             return Convert(x, newtype, digits)
-        except:
+        except Exception, e:
             self.display.msg("%sCouldn't perform conversion" % fln())
-            return None
+            raise e
 
     def Cast_i(self, x):
         """

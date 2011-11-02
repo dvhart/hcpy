@@ -31,8 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
 from mpmath import *
-from rational import Rational
-from convert import *
 from debug import *
 
 class Stack(object):
@@ -194,10 +192,6 @@ if __name__ == "__main__":
         e.binary(add)
         assert e[0] == 3 and e.size() == 1
         e.clear_stack()
-        e.push(Rational(3, 8))
-        e.push(Rational(3, 8))
-        e.binary(add)
-        assert e[0] == Rational(3, 4)
     StackManipulation()
     UnaryFunctions()
     BinaryFunctions()
