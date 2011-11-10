@@ -1038,6 +1038,7 @@ class Zn(object):
 
     def __coerce__(self, other):
         # hmmmmm.... the types we can encounter
+        print "coersion: %s, %s" %(self, other)
         if isint_native(other):
             return self, Zn(other)
         ot = type(other)
@@ -1089,8 +1090,8 @@ class Zn(object):
     def __rsub__(self, y):
         y1, x1 = self._auto_cast(y)
         if isinstance(y1, Zn) and isinstance(x1, Zn):
-            return Zn(-y1.value + x1.value, proto=x1)
-        return -y1 + x1
+            return Zn(y1.value - x1.value, proto=x1)
+        return y1 - x1
 
     def __mul__(self, y):
         y1, x1 = self._auto_cast(y)

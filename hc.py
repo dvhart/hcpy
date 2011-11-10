@@ -689,7 +689,7 @@ class Calculator(object):
         try:
             return y - x
         except:
-            return -x + y
+            return -(y - x)
 
     def multiply(self, y, x):
         """
