@@ -200,6 +200,8 @@ class Calculator(object):
             "log"      : [self.log10, 1], # Base 10 logarithm
             "exp"      : [self.exp, 1], # Exponential function
             "bits"     : [self.bits, 1], # calculate the number of bits required for this integer
+            "db"       : [self.db, 1], # take a number in db and express it as a std ratio
+            "bd"       : [self.bd, 1], # take a ratio and express it in db
 
             # 0-nary functions
             "rand"     : [self.rand, 0],  # Uniform random number
@@ -1333,6 +1335,26 @@ class Calculator(object):
         if isinstance(x, Zn): x = int(x)
         if x < 0: x = self.abs(x)
         return int(self.ceil(self.log2(x)))
+
+    def db(self, x):
+        """
+    Usage: x db
+
+    Returns the x (in dB) as a standard ratio
+    x = 10*log(y) ==> x db -> y
+    or a shortcut for '10 x 10 / ^'
+        """
+        return self.power(mpf('10.0'), x / mpf('10.0'))
+
+    def bd(self, x):
+        """
+    Usage: x bd
+
+    Returns the x as dB
+    y = 10*log(x) ==> x bd -> y
+    or a shortcut for 'x log10 10 *'
+        """
+        return 10 * self.log10(x)
 
     def abs(self, x):
         """
