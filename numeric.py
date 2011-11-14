@@ -37,7 +37,7 @@ from mpmath import mpf, mpc, mpi, ctx_iv, eps, mp, pi
 from mpformat import mpFormat, inf
 from debug import *
 import socket
-from time import localtime, strftime, time
+import time
 import re
 from string import strip
 from si import suffixes_ln
@@ -1740,9 +1740,9 @@ class Julian(object):
                     else:
                         raise Exception("")
             if M == "" and y == "":
-                y, M = [int(i) for i in strftime("%Y %m").split()]
+                y, M = [int(i) for i in time.strftime("%Y %m").split()]
             elif y == "":
-                y = int(strftime("%Y"))
+                y = int(time.strftime("%Y"))
             if y:
                 y = int(y)
             if day == "":
@@ -1784,7 +1784,7 @@ class Julian(object):
         def form3(st):
             assert st[0] == ":" and len(st) > 1
             d, M, y, h, m, s = [int(i) for i in
-                strftime("%d %m %Y %H %M %S", localtime()).split()]
+                time.strftime("%d %m %Y %H %M %S", time.localtime()).split()]
             h, m, s = 0, 0, 0
             fields = [i for i in st[1:].split(":") if i]
             if not (1 <= len(fields) <= 3):
@@ -1818,9 +1818,9 @@ class Julian(object):
             raise ValueError("%sCould not convert '%s'" % (fln(), s))
 
     def _convert_now(self, now):
-        nowtime = time()
+        nowtime = time.time()
         d, M, y, h, m, s = [int(i) for i in
-            strftime("%d %m %Y %H %M %S", localtime(nowtime)).split()]
+            time.strftime("%d %m %Y %H %M %S", time.localtime(nowtime)).split()]
         if now == "today":
             return y, M, d, 0, 0, mpf("0")
         elif now == "now":
